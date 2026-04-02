@@ -1,5 +1,5 @@
 import httpx
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..config import settings
 
 # Station-specific filtering as per specification section 4.1
@@ -22,7 +22,7 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str):
     params = {
         "station": station,
         "limit": 30,  # We fetch more and then filter
-        "show_prognosis": 1,
+        "show_delays": 1,
         "transportation_types": "tram,bus"
     }
     
@@ -42,22 +42,32 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str):
             if conn.get("line") == f["line"]:
                 terminal = conn.get("terminal", {}).get("name", "")
                 if any(t.lower() in terminal.lower() for t in f["terminals"]):
-                    # Departure time
-                    dep_time_str = conn.get("prognosis", {}).get("departure") or conn.get("departure")
-                    if not dep_time_str: continue
-                    
-                    dep_time = datetime.fromisoformat(dep_time_str.replace('Z', '+00:00'))
-                    diff = dep_time.replace(tzinfo=None) - now.replace(tzinfo=None)
-                    minutes = round(diff.total_seconds() / 60)
-                    
-                    if minutes < 0: continue
-                    
+                    # Scheduled departure time from the "time" field
+                    dep_time_str = conn.get("time")
+                    if not dep_time_str:
+                        continue
+
+                    try:
+                        dep_time = datetime.fromisoformat(dep_time_str.replace('Z', '+00:00'))
+                        dep_time = dep_time.replace(tzinfo=None)
+                    except ValueError:
+                        continue
+
+                    # Parse delay and add to departure time for actual minutes calculation
                     delay = 0
-                    if conn.get("dep_delay"):
+                    raw_delay = conn.get("dep_delay")
+                    if raw_delay:
                         try:
-                            delay = int(conn.get("dep_delay"))
+                            delay = int(raw_delay)
+                            dep_time = dep_time + timedelta(minutes=delay)
                         except (ValueError, TypeError):
                             pass
+
+                    diff = dep_time - now
+                    minutes = round(diff.total_seconds() / 60)
+
+                    if minutes < 0:
+                        continue
 
                     results.append({
                         "line": conn.get("line"),

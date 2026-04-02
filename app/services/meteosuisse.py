@@ -4,8 +4,24 @@ import io
 from astral import LocationInfo
 from astral.sun import sun
 from datetime import datetime, date, timedelta
+from typing import List, Optional
+from ..config import settings
 
-# ... (existing imports and HOURLY_PARAMS/DAILY_PARAMS)
+HOURLY_PARAMS = [
+    "tre200h0",  # Air temperature 2m, hourly mean (°C)
+    "rre150h0",  # Precipitation, hourly total (mm)
+    "sre000h0",  # Sunshine duration, hourly total (minutes)
+    "fu3010h0",  # Wind speed, hourly mean (km/h)
+    "dkl010h0",  # Wind direction, hourly mean
+    "jww003i0",  # MeteoSwiss weather icon number (3-hourly)
+]
+
+DAILY_PARAMS = [
+    "tre200px",  # Daily max temperature
+    "tre200pn",  # Daily min temperature
+    "rka150p0",  # Daily precipitation total
+    "jp2000d0",  # MeteoSwiss pictogram number (daily, daytime)
+]
 
 def get_daily_forecast(meteo_data: dict, days_offset: int = 0):
     """

@@ -10,7 +10,7 @@ FONT_SEARCH_PATHS = [
     "/Library/Fonts/DejaVuSans.ttf"
 ]
 
-@lru_cache(max_size=32)
+@lru_cache(maxsize=32)
 def get_font(size: int, weight: str = "Regular"):
     """Loads a font at the specified size and weight, with caching."""
     font_name = "DejaVuSans"
