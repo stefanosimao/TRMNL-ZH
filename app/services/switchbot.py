@@ -6,8 +6,8 @@ import uuid
 import httpx
 from ..config import settings
 
-async def fetch_switchbot_status(client: httpx.AsyncClient):
-    """Fetch status from SwitchBot API v1.1 with HMAC-SHA256 signature."""
+async def fetch_switchbot_status(client: httpx.AsyncClient, device_id: str):
+    """Fetch status from SwitchBot API v1.1 with HMAC-SHA256 signature for a specific device."""
     nonce = str(uuid.uuid4())
     timestamp = str(int(time.time() * 1000))
     data = settings.SWITCHBOT_TOKEN + timestamp + nonce
@@ -28,7 +28,7 @@ async def fetch_switchbot_status(client: httpx.AsyncClient):
         "Content-Type": "application/json; charset=utf8"
     }
     
-    url = f"https://api.switch-bot.com/v1.1/devices/{settings.SWITCHBOT_DEVICE_ID}/status"
+    url = f"https://api.switch-bot.com/v1.1/devices/{device_id}/status"
     
     response = await client.get(url, headers=headers)
     response.raise_for_status()
@@ -37,6 +37,7 @@ async def fetch_switchbot_status(client: httpx.AsyncClient):
     if data.get("statusCode") == 100:
         return {
             "temperature": data["body"]["temperature"],
-            "battery": data["body"]["battery"]
+            "humidity": data["body"].get("humidity"),
+            "battery": data["body"].get("battery")
         }
     return None
