@@ -16,8 +16,19 @@ STATION_FILTERS = {
     ]
 }
 
-async def fetch_stationboard(client: httpx.AsyncClient, station: str):
-    """Fetch upcoming departures from search.ch and calculate minutes until arrival."""
+async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
+    """
+    Fetches upcoming public transit departures for a given station using the search.ch API.
+    Applies station-specific filtering logic to only return relevant lines and destinations
+    based on the STATION_FILTERS configuration. Calculates the real-time minutes until departure.
+    
+    Args:
+        client: Shared HTTPX async client.
+        station: The name of the station to query (e.g., "Zürich, Albisrieden").
+        
+    Returns:
+        list: A list of departure dictionaries containing line, destination, minutes, delay, and time.
+    """
     url = "https://transport.search.ch/api/stationboard.json"
     params = {
         "station": station,

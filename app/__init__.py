@@ -123,9 +123,17 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    """
+    Application factory pattern. Creates and configures the FastAPI application,
+    sets up the lifespan (startup/shutdown events and background jobs), mounts 
+    the static image directory, and registers API routers.
+    
+    Returns:
+        FastAPI: The configured application instance.
+    """
     app = FastAPI(title="TRMNL-ZH", lifespan=lifespan)
 
-    # Mount the generated directory for static image access
+    # Mount the generated directory for static image access by the TRMNL device
     if not os.path.exists(settings.IMAGE_DIR):
         os.makedirs(settings.IMAGE_DIR)
     app.mount(f"/{settings.IMAGE_DIR}", StaticFiles(directory=settings.IMAGE_DIR), name=settings.IMAGE_DIR)

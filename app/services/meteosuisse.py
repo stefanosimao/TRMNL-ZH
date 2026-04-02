@@ -137,14 +137,23 @@ def get_24h_series(meteo_data: dict, param: str, target_date: datetime = None) -
                 
     return day_data
 
-def get_current_conditions(meteo_data: dict):
-    """Extracts current temperature and condition from the hourly data."""
+def get_current_conditions(meteo_data: dict) -> dict:
+    """
+    Extracts the current hour's temperature and conditions from the 
+    MeteoSwiss hourly forecast data series.
+    
+    Args:
+        meteo_data: The full parsed dictionary containing 'hourly' and 'daily' keys.
+        
+    Returns:
+        dict: A dictionary containing 'temp' and 'plz', or an empty dictionary if unavailable.
+    """
     if not meteo_data or "hourly" not in meteo_data:
-        return None
+        return {}
         
     temp_series = meteo_data["hourly"].get("tre200h0", [])
     if not temp_series:
-        return None
+        return {}
         
     now = datetime.now()
     now_hour = now.hour

@@ -6,8 +6,19 @@ import uuid
 import httpx
 from ..config import settings
 
-async def fetch_switchbot_status(client: httpx.AsyncClient, device_id: str):
-    """Fetch status from SwitchBot API v1.1 with HMAC-SHA256 signature for a specific device."""
+async def fetch_switchbot_status(client: httpx.AsyncClient, device_id: str) -> Optional[dict]:
+    """
+    Fetches the current sensor readings from a specific SwitchBot Meter.
+    Implements the SwitchBot API v1.1 HMAC-SHA256 request signing mechanism.
+    
+    Args:
+        client: Shared HTTPX async client.
+        device_id: The MAC address or ID of the SwitchBot device.
+        
+    Returns:
+        Optional[dict]: A dictionary containing 'temperature', 'humidity', and 'battery', 
+                        or None if the request fails or returns a non-100 status code.
+    """
     nonce = str(uuid.uuid4())
     timestamp = str(int(time.time() * 1000))
     data = settings.SWITCHBOT_TOKEN + timestamp + nonce
@@ -36,7 +47,7 @@ async def fetch_switchbot_status(client: httpx.AsyncClient, device_id: str):
     data = response.json()
     if data.get("statusCode") == 100:
         return {
-            "temperature": data["body"]["temperature"],
+            "temperature": data["body"].get("temperature"),
             "humidity": data["body"].get("humidity"),
             "battery": data["body"].get("battery")
         }

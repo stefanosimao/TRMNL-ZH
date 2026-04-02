@@ -37,9 +37,17 @@ def _cache_ts(key: str) -> str:
 
 def compose_screen(data: dict):
     """
-    Main 800x480 compositor as per section 5 of specification.
-    - Left 2/3 (555px): Weather tiles + Forecast + Charts.
-    - Right 1/3 (245px): Transit + Summary + Clock.
+    Main 800x480 image compositor for the TRMNL e-ink display.
+    Orchestrates the drawing of all UI sections according to the design specification:
+    - Left Panel (555px): Current weather, 3-day forecast, and 24h meteo charts.
+    - Right Panel (245px): Transit departures, Gemini AI summary, clock, and metadata.
+    
+    Args:
+        data: A consolidated dictionary containing 'weather', 'transit', 'summary', 
+              'meteo_full', and 'battery' metrics.
+              
+    Returns:
+        Image.Image: The fully rendered 1-bit (B&W) Pillow Image object.
     """
     img = Image.new("1", (800, 480), 255)  # 1-bit mode, White
     draw = ImageDraw.Draw(img)
@@ -87,8 +95,8 @@ def compose_screen(data: dict):
 
             min_t = forecast.get("min_temp", "--")
             max_t = forecast.get("max_temp", "--")
-            min_s = f"{min_t:.0f}" if isinstance(min_t, float) else str(min_t)
-            max_s = f"{max_t:.0f}" if isinstance(max_t, float) else str(max_t)
+            min_s = f"{min_t:.0f}" if isinstance(min_t, float) else ("--" if min_t is None else str(min_t))
+            max_s = f"{max_t:.0f}" if isinstance(max_t, float) else ("--" if max_t is None else str(max_t))
             draw.text((x + 55, 80), f"{min_s}/{max_s}°", font=font_reg, fill=0)
 
             if i == 0:

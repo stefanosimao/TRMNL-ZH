@@ -21,9 +21,19 @@ async def verify_trmnl_request(request: Request):
 @router.get("/display")
 async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
     """
-    Main TRMNL BYOS endpoint.
-    Fetches real-time transit, merges with cached sensors/weather, 
-    renders the image, and returns the metadata.
+    Main TRMNL BYOS (Bring Your Own Server) endpoint.
+    This endpoint is polled by the TRMNL e-ink device to retrieve the display image.
+    It fetches live transit data on the fly, combines it with asynchronously cached 
+    weather, sensor, and summary data, renders the final image, and returns the 
+    required JSON metadata payload instructing the device on what to display.
+    
+    Args:
+        request: The FastAPI request object containing headers and app state.
+        _: Dependency injection to verify the TRMNL_DEVICE_ID header.
+        
+    Returns:
+        A JSON dictionary containing the image URL, filename, and refresh rate,
+        conforming to the TRMNL custom firmware specifications.
     """
     client = request.app.state.client
     
