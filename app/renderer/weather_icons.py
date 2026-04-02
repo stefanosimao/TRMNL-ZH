@@ -1,3 +1,4 @@
+import math
 from PIL import ImageDraw
 
 def draw_weather_icon(draw: ImageDraw, x: int, y: int, pictogram_id: int):
@@ -5,19 +6,23 @@ def draw_weather_icon(draw: ImageDraw, x: int, y: int, pictogram_id: int):
     Draws a 40x40 1-bit weather icon based on MeteoSwiss jp2000d0 codes.
     1: Sun, 2: Sun/Cloud, 3: Cloud, 4: Overcast, 5: Rain, etc.
     """
-    # Simple geometric icon drawing for now
     if pictogram_id is None:
         return
-        
+
     p = int(pictogram_id)
-    
+
     # 1: Clear/Sunny
     if p == 1:
-        draw.ellipse([x+10, y+10, x+30, y+30], outline=0, width=2)
-        # Rays
-        for angle in range(0, 360, 45):
-            # (Just simple representation)
-            pass
+        cx, cy, r = x + 20, y + 20, 8
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=0, width=2)
+        # Draw 8 rays
+        for deg in range(0, 360, 45):
+            rad = math.radians(deg)
+            x0 = int(cx + math.cos(rad) * (r + 3))
+            y0 = int(cy + math.sin(rad) * (r + 3))
+            x1 = int(cx + math.cos(rad) * (r + 7))
+            y1 = int(cy + math.sin(rad) * (r + 7))
+            draw.line([x0, y0, x1, y1], fill=0, width=1)
     # 2: Mostly sunny
     elif p == 2:
         draw.ellipse([x+15, y+5, x+35, y+25], outline=0) # Sun behind

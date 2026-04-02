@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Gemini Flash
     GEMINI_API_KEY: Optional[str] = None
 
+    # Wetter-Alarm — POI 142941 = Zürich Albisrieden
+    WETTERALARM_POI_ID: int = 142941
+
     # Server / Paths
     SERVER_HOST: str = "0.0.0.0"
     SERVER_PORT: int = 8000

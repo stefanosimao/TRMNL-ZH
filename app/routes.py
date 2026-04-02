@@ -3,6 +3,7 @@ from starlette.responses import JSONResponse
 import time
 import os
 import asyncio
+from datetime import datetime
 from .config import settings
 from .cache import global_cache
 from .services.searchch import fetch_stationboard
@@ -40,8 +41,21 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
     meteo_data = global_cache.get("meteo")
     current_meteo = get_current_conditions(meteo_data) if meteo_data else {}
     
-    # Merge summary if available (Phase 4)
-    summary = global_cache.get("summary") or "Caricamento summary intelligente..."
+    summary = global_cache.get("summary") or "Caricamento riepilogo intelligente..."
+
+    # Battery voltage header → approximate percentage (3.0V=0%, 4.2V=100%)
+    battery_pct = None
+    batt_voltage = request.headers.get("BATTERY_VOLTAGE")
+    if batt_voltage:
+        try:
+            v = float(batt_voltage)
+            battery_pct = max(0, min(100, int((v - 3.0) / 1.2 * 100)))
+        except (ValueError, TypeError):
+            pass
+
+    # Store transit snapshot so Gemini job can reference recent departures
+    transit_snapshot = {"station_1": station_1_deps, "station_2": station_2_deps}
+    global_cache.set("transit_snapshot", transit_snapshot)
 
     # 3. Build data bundle for renderer
     data_bundle = {
@@ -55,19 +69,25 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
             "station_2": station_2_deps
         },
         "summary": summary,
-        "meteo_full": meteo_data
+        "meteo_full": meteo_data,
+        "battery": battery_pct,
     }
 
     # 4. Render 800x480 screen image
     try:
         img = compose_screen(data_bundle)
-        
-        # Save image to the static directory
-        image_path = os.path.join(settings.IMAGE_DIR, "screen.png")
-        img.save(image_path)
     except Exception as e:
         print(f"Error rendering screen: {e}")
-        # We might want to fallback to a basic error image or return error JSON
+        # Fallback: minimal error image so the device never gets a blank screen
+        from PIL import Image, ImageDraw
+        from .renderer.fonts import get_font
+        img = Image.new("1", (800, 480), 255)
+        d = ImageDraw.Draw(img)
+        d.text((20, 200), f"⚠ Errore rendering: {str(e)[:80]}", font=get_font(18, "Regular"), fill=0)
+        d.text((20, 230), datetime.now().strftime("%H:%M:%S"), font=get_font(18, "Regular"), fill=0)
+
+    image_path = os.path.join(settings.IMAGE_DIR, "screen.png")
+    img.save(image_path)
 
     # 5. Return JSON metadata per BYOS spec
     timestamp = int(time.time())
