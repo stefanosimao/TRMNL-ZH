@@ -118,9 +118,10 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
     image_url = f"{base_url}/{settings.IMAGE_DIR}/screen.png?v={timestamp}"
     
     return {
+        "status": 0,
         "image_url": image_url,
         "filename": filename,
-        "refresh_rate": settings.TRMNL_REFRESH_RATE,
+        "refresh_rate": settings.TRMNL_REFRESH_RATE * 60,
         "update_firmware": False,
         "firmware_url": None,
         "reset_firmware": False
