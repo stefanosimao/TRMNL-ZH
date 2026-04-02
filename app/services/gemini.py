@@ -2,6 +2,7 @@
 Gemini Flash 2.5 integration.
 Generates a short Italian weather + transit summary paragraph.
 """
+import asyncio
 from google import genai
 from datetime import datetime
 from ..config import settings
@@ -49,15 +50,30 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
 
 
 async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
-    """Calls Gemini Flash and returns an Italian summary string."""
+    """
+    Calls the Gemini 2.5 Flash API to generate an Italian weather and transit summary.
+    Because the google-genai client's `generate_content` is synchronous, this function
+    offloads the execution to a separate thread using `asyncio.to_thread()` to prevent
+    blocking the FastAPI asynchronous event loop.
+    
+    Args:
+        weather: A dictionary containing indoor, outdoor, and meteo temperatures.
+        transit: A dictionary containing upcoming station_1 and station_2 departures.
+        alerts: A list of active weather alerts.
+        
+    Returns:
+        str: A concise 3-5 sentence Italian summary.
+    """
     if not settings.GEMINI_API_KEY:
         return "Gemini API key non configurata."
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         prompt = _build_prompt(weather, transit, alerts)
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
+        # generate_content is synchronous — run in a thread to avoid blocking the event loop
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model="gemini-2.5-flash",
             contents=prompt,
         )
         return response.text.strip()

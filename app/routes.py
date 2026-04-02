@@ -67,20 +67,31 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
     transit_snapshot = {"station_1": station_1_deps, "station_2": station_2_deps}
     global_cache.set("transit_snapshot", transit_snapshot)
 
+    def _ts(key: str) -> str:
+        meta = global_cache.get_with_meta(key)
+        if meta and meta.get("timestamp"):
+            return datetime.fromtimestamp(meta["timestamp"]).strftime("%H:%M")
+        return "--:--"
+
     # 3. Build data bundle for renderer
     data_bundle = {
         "weather": {
-            "indoor": switchbot.get("indoor", {}),
+            "indoor":  switchbot.get("indoor",  {}),
             "outdoor": switchbot.get("outdoor", {}),
-            "meteo": current_meteo
+            "meteo":   current_meteo,
         },
         "transit": {
             "station_1": station_1_deps,
-            "station_2": station_2_deps
+            "station_2": station_2_deps,
         },
-        "summary": summary,
+        "summary":    summary,
         "meteo_full": meteo_data,
-        "battery": battery_pct,
+        "battery":    battery_pct,
+        "timestamps": {
+            "switchbot": _ts("switchbot"),
+            "meteo":     _ts("meteo"),
+            "summary":   _ts("summary"),
+        },
     }
 
     # 4. Render 800x480 screen image

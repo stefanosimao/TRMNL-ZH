@@ -1,94 +1,101 @@
 import httpx
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from ..config import settings
 
-# Station-specific filtering as per specification section 4.1
-STATION_FILTERS = {
-    settings.TRANSIT_STATION_1: [
-        {"line": "3", "terminals": ["Klusplatz"], "count": 2},
-        {"line": "80", "terminals": ["Triemli"], "count": 1},
-        {"line": "80", "terminals": ["Oerlikon"], "count": 2}
-    ],
-    settings.TRANSIT_STATION_2: [
-        {"line": "3", "terminals": ["Klusplatz"], "count": 2},
-        {"line": "67", "terminals": ["Wiedikon"], "count": 2},
-        {"line": "67", "terminals": ["Milchbuck"], "count": 2}
-    ]
-}
+_ZURICH_TZ = ZoneInfo("Europe/Zurich")
+
+# Lazily built on first call so module-level evaluation doesn't race with settings load.
+_STATION_FILTERS: dict | None = None
+
+
+def _get_filters() -> dict:
+    global _STATION_FILTERS
+    if _STATION_FILTERS is None:
+        _STATION_FILTERS = {
+            settings.TRANSIT_STATION_1: [
+                {"line": "3",  "terminals": ["Klusplatz"], "count": 2},
+                {"line": "80", "terminals": ["Triemli"],   "count": 1},
+                {"line": "80", "terminals": ["Oerlikon"],  "count": 2},
+            ],
+            settings.TRANSIT_STATION_2: [
+                {"line": "3",  "terminals": ["Klusplatz"],  "count": 2},
+                {"line": "67", "terminals": ["Wiedikon"],   "count": 2},
+                {"line": "67", "terminals": ["Milchbuck"],  "count": 2},
+            ],
+        }
+    return _STATION_FILTERS
+
 
 async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
     """
     Fetches upcoming public transit departures for a given station using the search.ch API.
-    Applies station-specific filtering logic to only return relevant lines and destinations
-    based on the STATION_FILTERS configuration. Calculates the real-time minutes until departure.
-    
-    Args:
-        client: Shared HTTPX async client.
-        station: The name of the station to query (e.g., "Zürich, Albisrieden").
-        
-    Returns:
-        list: A list of departure dictionaries containing line, destination, minutes, delay, and time.
+    Applies station-specific filtering and calculates minutes until actual departure.
+
+    Departure times from search.ch are in Swiss local time (Europe/Zurich).
+    The comparison uses timezone-aware datetimes so the result is correct on UTC servers.
     """
-    url = "https://transport.search.ch/api/stationboard.json"
+    url = "https://timetable.search.ch/api/stationboard.json"
     params = {
-        "station": station,
-        "limit": 30,  # We fetch more and then filter
+        "stop": station,           # search.ch expects "stop", not "station"
+        "limit": 30,
         "show_delays": 1,
-        "transportation_types": "tram,bus"
+        "transportation_types": "tram,bus",
     }
-    
+
     response = await client.get(url, params=params)
     response.raise_for_status()
     data = response.json()
-    
+
     connections = data.get("connections", [])
-    filters = STATION_FILTERS.get(station, [])
-    
+    filters = _get_filters().get(station, [])
+
     results = []
-    now = datetime.now()
-    
+    now = datetime.now(_ZURICH_TZ)
+
     for f in filters:
         count = 0
         for conn in connections:
-            if conn.get("line") == f["line"]:
-                terminal = conn.get("terminal", {}).get("name", "")
-                if any(t.lower() in terminal.lower() for t in f["terminals"]):
-                    # Scheduled departure time from the "time" field
-                    dep_time_str = conn.get("time")
-                    if not dep_time_str:
-                        continue
+            if conn.get("line") != f["line"]:
+                continue
 
-                    try:
-                        dep_time = datetime.fromisoformat(dep_time_str.replace('Z', '+00:00'))
-                        dep_time = dep_time.replace(tzinfo=None)
-                    except ValueError:
-                        continue
+            terminal = conn.get("terminal", {}).get("name", "")
+            if not any(t.lower() in terminal.lower() for t in f["terminals"]):
+                continue
 
-                    # Parse delay and add to departure time for actual minutes calculation
-                    delay = 0
-                    raw_delay = conn.get("dep_delay")
-                    if raw_delay:
-                        try:
-                            delay = int(raw_delay)
-                            dep_time = dep_time + timedelta(minutes=delay)
-                        except (ValueError, TypeError):
-                            pass
+            dep_time_str = conn.get("time")
+            if not dep_time_str:
+                continue
 
-                    diff = dep_time - now
-                    minutes = round(diff.total_seconds() / 60)
+            try:
+                # search.ch returns naive local Swiss time — attach the Zurich timezone
+                dep_time = datetime.fromisoformat(dep_time_str).replace(tzinfo=_ZURICH_TZ)
+            except ValueError:
+                continue
 
-                    if minutes < 0:
-                        continue
+            delay = 0
+            raw_delay = conn.get("dep_delay")
+            if raw_delay:
+                try:
+                    delay = int(raw_delay)
+                    dep_time = dep_time + timedelta(minutes=delay)
+                except (ValueError, TypeError):
+                    pass
 
-                    results.append({
-                        "line": conn.get("line"),
-                        "destination": terminal,
-                        "minutes": minutes,
-                        "delay": delay,
-                        "time": dep_time.strftime("%H:%M")
-                    })
-                    count += 1
-                    if count >= f["count"]:
-                        break
-                        
+            diff = dep_time - now
+            minutes = round(diff.total_seconds() / 60)
+            if minutes < 0:
+                continue
+
+            results.append({
+                "line":        conn.get("line"),
+                "destination": terminal,
+                "minutes":     minutes,
+                "delay":       delay,
+                "time":        dep_time.strftime("%H:%M"),
+            })
+            count += 1
+            if count >= f["count"]:
+                break
+
     return results

@@ -109,9 +109,17 @@ def draw_bar_chart(draw: ImageDraw, x: int, y: int, width: int, height: int,
     return 0.0, max_v
 
 
-def render_weather_charts(draw: ImageDraw, x: int, y: int, meteo_data: dict):
-    """Renders both 24h charts as per specification section 5."""
-    from ..services.meteosuisse import get_24h_series, get_sun_times
+def render_weather_charts(draw: ImageDraw, x: int, y: int, meteo_data: dict,
+                          sunrise: str | None = None, sunset: str | None = None):
+    """
+    Renders both 24h charts as per specification section 5.
+
+    Args:
+        meteo_data: Full MeteoSuisse data dict (contains 'hourly' series).
+        sunrise: "HH:MM" string for sunrise marker on Chart 2, or None.
+        sunset:  "HH:MM" string for sunset marker on Chart 2, or None.
+    """
+    from ..services.meteosuisse import get_24h_series
 
     font_tiny = get_font(10, "Regular")
 
@@ -160,14 +168,15 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int, meteo_data: dict):
     if wind_range:
         draw_y_axis(draw, cx + chart_w, c2y, chart_h, wind_range[0], wind_range[1], "km/h", right=True)
 
-    # Sunrise / Sunset markers on the time axis
-    try:
-        sun_times = get_sun_times()
-        for symbol, time_str in [("↑", sun_times["sunrise"]), ("↓", sun_times["sunset"])]:
+    # Sunrise / Sunset markers on the time axis (passed in from screen.py)
+    for symbol, time_str in [("↑", sunrise), ("↓", sunset)]:
+        if not time_str:
+            continue
+        try:
             h, m = map(int, time_str.split(":"))
             hour_frac = h + m / 60
             mx = cx + int(hour_frac * chart_w / 24)
             draw.line([mx, c2y + chart_h - 6, mx, c2y + chart_h], fill=0, width=1)
             draw.text((mx - 3, c2y + chart_h + 16), symbol, font=font_tiny, fill=0)
-    except Exception:
-        pass  # Non-critical; skip if sun times unavailable
+        except (ValueError, AttributeError):
+            pass

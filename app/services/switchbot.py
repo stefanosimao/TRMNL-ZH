@@ -4,6 +4,7 @@ import time
 import base64
 import uuid
 import httpx
+from typing import Optional
 from ..config import settings
 
 async def fetch_switchbot_status(client: httpx.AsyncClient, device_id: str) -> Optional[dict]:

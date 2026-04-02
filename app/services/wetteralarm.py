@@ -4,7 +4,7 @@ Fetches active MeteoAlarm-style weather alerts for Zürich Albisrieden (POI 1429
 API: https://my.wetteralarm.ch/v7/alarms/meteo.json  (no auth required)
 """
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 from ..config import settings
 
 _BASE_URL = "https://my.wetteralarm.ch"
@@ -21,8 +21,16 @@ _PRIORITY_LABELS = {
 async def fetch_alerts(client: httpx.AsyncClient) -> list[dict]:
     """
     Returns a list of active alert dicts for the configured POI.
-    Each dict has: title, description, priority, valid_from, valid_to.
-    Returns [] when no alerts are active or on error.
+    Filters out expired alerts using timezone-aware UTC datetime comparisons.
+    Attempts to retrieve the alert text in Italian ('it'), falling back to
+    German ('de') or English ('en') if unavailable.
+    
+    Args:
+        client: Shared HTTPX async client.
+        
+    Returns:
+        list[dict]: A list of alert dictionaries sorted by priority (most severe first),
+                    or an empty list if no alerts are active or an error occurs.
     """
     poi_id = settings.WETTERALARM_POI_ID
     url = f"{_BASE_URL}/v7/alarms/meteo.json"
@@ -35,7 +43,7 @@ async def fetch_alerts(client: httpx.AsyncClient) -> list[dict]:
         print(f"Wetter-Alarm fetch error: {e}")
         return []
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     active_alerts = []
 
     for alarm in data.get("meteo_alarms", []):
@@ -43,18 +51,18 @@ async def fetch_alerts(client: httpx.AsyncClient) -> list[dict]:
         if poi_id not in alarm.get("poi_ids", []):
             continue
 
-        # Check time validity
+        # Check time validity (keep timezone-aware throughout)
         try:
-            valid_from = datetime.fromisoformat(alarm["valid_from"].replace("Z", "+00:00")).replace(tzinfo=None)
-            valid_to   = datetime.fromisoformat(alarm["valid_to"].replace("Z", "+00:00")).replace(tzinfo=None)
+            valid_from = datetime.fromisoformat(alarm["valid_from"].replace("Z", "+00:00"))
+            valid_to   = datetime.fromisoformat(alarm["valid_to"].replace("Z", "+00:00"))
         except (KeyError, ValueError):
             continue
 
         if not (valid_from <= now <= valid_to):
             continue
 
-        # Prefer German title/hint (closest to local language), fall back to English
-        lang_data = alarm.get("de") or alarm.get("en") or {}
+        # Prefer Italian, fall back to German (Swiss context), then English
+        lang_data = alarm.get("it") or alarm.get("de") or alarm.get("en") or {}
         title = lang_data.get("title", "Allerta meteo")
         hint  = lang_data.get("hint", "")
 
