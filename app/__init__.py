@@ -9,7 +9,7 @@ from .cache import global_cache
 from .services.switchbot import fetch_switchbot_status
 from .services.meteosuisse import fetch_meteosuisse_data
 from .services.wetteralarm import fetch_alerts, format_alerts_for_prompt
-# from .services.gemini import generate_summary
+from .services.gemini import generate_summary
 
 # Shared scheduler
 scheduler = AsyncIOScheduler()

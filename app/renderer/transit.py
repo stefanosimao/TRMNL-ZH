@@ -18,10 +18,11 @@ def render_transit_section(draw: ImageDraw, x: int, y: int, station_name: str, d
     curr_y = y + header_height + 4
     
     for dep in departures:
-        # Line badge (black filled)
-        line = dep.get("line")
-        line_w = 30
-        draw.rectangle([x + 2, curr_y, x + line_w, curr_y + 20], fill=0)
+        # Line badge (black filled) — width adapts to text so "80" never clips
+        line = dep.get("line", "")
+        text_w = int(draw.textlength(line, font=font_bold))
+        line_w = max(30, text_w + 10)
+        draw.rectangle([x + 2, curr_y, x + 2 + line_w, curr_y + 20], fill=0)
         draw.text((x + 5, curr_y + 2), line, font=font_bold, fill=255)
         
         # Destination

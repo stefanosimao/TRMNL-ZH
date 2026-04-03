@@ -9,7 +9,11 @@ load_dotenv()
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables and/or a .env file.
-    Utilizes Pydantic for validation and type safety.
+    
+    Utilizes Pydantic for validation, type safety, and default value management.
+    Handles configuration for the TRMNL device, SwitchBot API credentials, 
+    search.ch transit stations, MeteoSuisse location, Wetter-Alarm points of interest, 
+    and Gemini AI summaries.
     """
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     
@@ -42,7 +46,4 @@ class Settings(BaseSettings):
     IMAGE_DIR: str = "generated"  # Directory to serve and store the rendered screen.png
     BASE_URL: str = "http://localhost:8000"  # Needed to give the TRMNL device absolute URLs
     
-    CACHE_TTL: int = 300
-    DEBUG: bool = False
-
 settings = Settings()

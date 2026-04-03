@@ -7,7 +7,7 @@ from datetime import datetime
 from .config import settings
 from .cache import global_cache
 from .services.searchch import fetch_stationboard
-from .services.meteosuisse import get_current_conditions
+from .services.meteosuisse import get_current_conditions, get_daily_forecast, get_sun_times, get_24h_series
 from .renderer.screen import compose_screen
 
 router = APIRouter(prefix="/api")
@@ -47,11 +47,20 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         station_1_deps, station_2_deps = [], []
 
     # 2. Get everything else from cache
-    switchbot = global_cache.get("switchbot") or {}
+    switchbot  = global_cache.get("switchbot") or {}
     meteo_data = global_cache.get("meteo")
     current_meteo = get_current_conditions(meteo_data) if meteo_data else {}
-    
-    summary = global_cache.get("summary") or "Caricamento riepilogo intelligente..."
+    summary    = global_cache.get("summary") or "Caricamento riepilogo intelligente..."
+
+    # Pre-compute derived meteo data so the renderer stays a pure display layer
+    sun_times = get_sun_times()
+    forecasts = [get_daily_forecast(meteo_data, i) for i in range(3)] if meteo_data else [None, None, None]
+    series = {
+        "temp":   get_24h_series(meteo_data, "tre200h0") if meteo_data else [None] * 24,
+        "precip": get_24h_series(meteo_data, "rre150h0") if meteo_data else [None] * 24,
+        "sun":    get_24h_series(meteo_data, "sre000h0") if meteo_data else [None] * 24,
+        "wind":   get_24h_series(meteo_data, "fu3010h0") if meteo_data else [None] * 24,
+    }
 
     # Battery voltage header → approximate percentage (3.0V=0%, 4.2V=100%)
     battery_pct = None
@@ -84,14 +93,16 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
             "station_1": station_1_deps,
             "station_2": station_2_deps,
         },
-        "summary":    summary,
-        "meteo_full": meteo_data,
-        "battery":    battery_pct,
+        "summary":   summary,
+        "battery":   battery_pct,
         "timestamps": {
             "switchbot": _ts("switchbot"),
             "meteo":     _ts("meteo"),
             "summary":   _ts("summary"),
         },
+        "sun_times": sun_times,
+        "forecasts": forecasts,
+        "series":    series,
     }
 
     # 4. Render 800x480 screen image
@@ -129,16 +140,38 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
 
 @router.post("/log")
 async def post_log(request: Request):
-    """Receive device log messages."""
+    """
+    Receive and print device log messages.
+    
+    Args:
+        request: The FastAPI request object containing the JSON log payload.
+        
+    Returns:
+        dict: A status acknowledgment.
+    """
     data = await request.json()
     print(f"TRMNL Log: {data}")
     return {"status": "ok"}
 
 @router.post("/setup")
 async def post_setup(request: Request):
-    """Device provisioning/setup."""
+    """
+    Handle device provisioning and setup requests.
+    
+    Args:
+        request: The FastAPI request object.
+        
+    Returns:
+        dict: A ready status indicating successful setup.
+    """
     return {"status": "ready"}
 
 @router.get("/health")
 async def health():
+    """
+    Health check endpoint to verify the server is running.
+    
+    Returns:
+        dict: A healthy status indicator.
+    """
     return {"status": "healthy"}

@@ -4,7 +4,6 @@ from .fonts import get_font
 from .transit import render_transit_section
 from .charts import render_weather_charts
 from .weather_icons import draw_weather_icon
-from ..services.meteosuisse import get_daily_forecast, get_sun_times
 
 # Italian abbreviated day names (Monday=0 … Sunday=6)
 _IT_DAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"]
@@ -33,13 +32,18 @@ def compose_screen(data: dict) -> Image.Image:
     Right panel (245px): transit departures, AI summary, clock/metadata.
 
     Args:
-        data: dict with keys:
-            weather       – {indoor, outdoor, meteo} temperature dicts
-            transit       – {station_1, station_2} departure lists
-            summary       – Italian summary string from Gemini
-            meteo_full    – full MeteoSuisse data dict
-            battery       – int percentage or None
-            timestamps    – {switchbot, meteo, summary} "HH:MM" strings
+        data (dict): Dictionary with keys:
+            weather    – {indoor, outdoor, meteo} temperature dicts
+            transit    – {station_1, station_2} departure lists
+            summary    – Italian summary string from Gemini
+            battery    – int percentage or None
+            timestamps – {switchbot, meteo, summary} "HH:MM" strings
+            sun_times  – {sunrise, sunset} "HH:MM" strings
+            forecasts  – list of 3 daily forecast dicts (today, tomorrow, day after)
+            series     – {temp, precip, sun, wind} lists of 24 hourly values
+
+    Returns:
+        Image.Image: The rendered 800x480 PIL Image object.
     """
     img  = Image.new("1", (800, 480), 255)
     draw = ImageDraw.Draw(img)
@@ -70,9 +74,9 @@ def compose_screen(data: dict) -> Image.Image:
         draw.text((x + 8, 22), temp_str, font=font_bold, fill=0)
 
     # ── Row 2: 3-day forecast tiles ───────────────────────────────────────────
-    meteo_full = data.get("meteo_full")
-    sun_times  = get_sun_times()
-    today      = date.today()
+    sun_times = data.get("sun_times", {})
+    forecasts = data.get("forecasts", [None, None, None])
+    today     = date.today()
 
     forecast_labels = ["OGGI", "DOMANI", _it_day_label(today + timedelta(days=2))]
     for i, label in enumerate(forecast_labels):
@@ -80,7 +84,7 @@ def compose_screen(data: dict) -> Image.Image:
         draw.rectangle([x + 4, 62, x + tile_w - 4, 152], outline=0, width=1)
         draw.text((x + 8, 65), label, font=font_tiny, fill=0)
 
-        forecast = get_daily_forecast(meteo_full, days_offset=i)
+        forecast = forecasts[i] if i < len(forecasts) else None
         if forecast:
             draw_weather_icon(draw, x + 8, 80, forecast.get("pictogram"))
 
@@ -92,16 +96,21 @@ def compose_screen(data: dict) -> Image.Image:
 
             if i == 0:
                 draw.text((x + 55, 102),
-                          f"↑{sun_times['sunrise']} ↓{sun_times['sunset']}",
+                          f"↑{sun_times.get('sunrise', '--:--')} ↓{sun_times.get('sunset', '--:--')}",
                           font=font_tiny, fill=0)
 
             precip = forecast.get("precip") or 0
             draw.text((x + 55, 120), f"{precip:.1f}mm", font=font_tiny, fill=0)
 
     # ── Rows 3+4: Charts ──────────────────────────────────────────────────────
-    if meteo_full:
+    series = data.get("series", {})
+    if series:
         render_weather_charts(
-            draw, 10, 158, meteo_full,
+            draw, 10, 158,
+            temp_data=series.get("temp",   [None] * 24),
+            prec_data=series.get("precip", [None] * 24),
+            sun_data=series.get("sun",     [None] * 24),
+            wind_data=series.get("wind",   [None] * 24),
             sunrise=sun_times.get("sunrise"),
             sunset=sun_times.get("sunset"),
         )

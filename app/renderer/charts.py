@@ -109,18 +109,22 @@ def draw_bar_chart(draw: ImageDraw, x: int, y: int, width: int, height: int,
     return 0.0, max_v
 
 
-def render_weather_charts(draw: ImageDraw, x: int, y: int, meteo_data: dict,
+def render_weather_charts(draw: ImageDraw, x: int, y: int,
+                          temp_data: list, prec_data: list,
+                          sun_data: list, wind_data: list,
                           sunrise: str | None = None, sunset: str | None = None):
     """
-    Renders both 24h charts as per specification section 5.
+    Renders both 24h charts. All series are passed in as pre-computed lists of
+    24 values (one per hour) so the renderer stays decoupled from data services.
 
     Args:
-        meteo_data: Full MeteoSuisse data dict (contains 'hourly' series).
-        sunrise: "HH:MM" string for sunrise marker on Chart 2, or None.
-        sunset:  "HH:MM" string for sunset marker on Chart 2, or None.
+        temp_data:  24h temperature series (°C).
+        prec_data:  24h precipitation series (mm/h).
+        sun_data:   24h sunshine duration series (min/h).
+        wind_data:  24h wind speed series (km/h).
+        sunrise:    "HH:MM" string for sunrise marker on Chart 2, or None.
+        sunset:     "HH:MM" string for sunset marker on Chart 2, or None.
     """
-    from ..services.meteosuisse import get_24h_series
-
     font_tiny = get_font(10, "Regular")
 
     LEFT_PAD  = 32  # space for left Y-axis labels
@@ -133,9 +137,6 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int, meteo_data: dict,
     c1y = y + 16
     draw_chart_title(draw, cx, c1y, "Temperatura (°C) + Precipitazioni (mm/h)")
     draw_24h_grid(draw, cx, c1y, chart_w, chart_h)
-
-    temp_data = get_24h_series(meteo_data, "tre200h0")
-    prec_data = get_24h_series(meteo_data, "rre150h0")
 
     prec_range = draw_bar_chart(draw, cx, c1y, chart_w, chart_h, prec_data, fill=True)
     temp_range = draw_line_chart(draw, cx, c1y, chart_w, chart_h, temp_data, color=0)
@@ -156,9 +157,6 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int, meteo_data: dict,
     c2y = c1y + chart_h + 30
     draw_chart_title(draw, cx, c2y, "Sole (min/h) + Vento (km/h)")
     draw_24h_grid(draw, cx, c2y, chart_w, chart_h)
-
-    sun_data  = get_24h_series(meteo_data, "sre000h0")
-    wind_data = get_24h_series(meteo_data, "fu3010h0")
 
     sun_range  = draw_bar_chart(draw, cx, c2y, chart_w, chart_h, sun_data,  fill=False)
     wind_range = draw_line_chart(draw, cx, c2y, chart_w, chart_h, wind_data, color=0, dashed=True)

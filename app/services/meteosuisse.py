@@ -53,8 +53,13 @@ def get_daily_forecast(meteo_data: dict, days_offset: int = 0):
                 
     return res
 
-def get_sun_times():
-    """Calculates sunrise and sunset for Zurich (47.37N, 8.52E)."""
+def get_sun_times() -> dict:
+    """
+    Calculates sunrise and sunset times for Zurich (47.37N, 8.52E).
+    
+    Returns:
+        dict: A dictionary containing 'sunrise' and 'sunset' formatted as 'HH:MM'.
+    """
     city = LocationInfo("Zurich", "Switzerland", "Europe/Zurich", 47.37, 8.52)
     s = sun(city.observer, date=date.today())
     return {
