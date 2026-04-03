@@ -62,39 +62,65 @@ def get_sun_times():
         "sunset": s["sunset"].strftime("%H:%M")
     }
 
+async def _resolve_point_ids(client: httpx.AsyncClient, plz: str) -> set:
+    """
+    Downloads the collection-level station metadata CSV and returns the set of
+    point_id values that correspond to the given postal code.
+    """
+    meta_url = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasting/ogd-local-forecasting_meta_point.csv"
+    try:
+        r = await client.get(meta_url)
+        r.raise_for_status()
+        content = r.content.decode('latin-1')
+        reader = csv.DictReader(io.StringIO(content), delimiter=';')
+        ids = {row['point_id'] for row in reader if row.get('postal_code') == plz}
+        print(f"Resolved PLZ {plz} → point_ids: {ids}")
+        return ids
+    except Exception as e:
+        print(f"Error resolving point_ids for PLZ {plz}: {e}")
+        return set()
+
+
 async def fetch_meteosuisse_data(client: httpx.AsyncClient):
     """
-    Downloads forecast CSVs for all parameters for PLZ 8047.
-    Uses STAC API to find the latest available CSV files.
+    Downloads forecast CSVs for all parameters for the configured PLZ.
+    Uses STAC API to find the latest available CSV files and the collection
+    metadata to resolve the numeric point_id(s) for the PLZ.
     Returns structured hourly and daily data.
     """
     stac_url = "https://data.geo.admin.ch/api/stac/v1/collections/ch.meteoschweiz.ogd-local-forecasting/items?limit=1"
-    
+
     results = {
         "hourly": {},
         "daily": {},
         "last_updated": datetime.now().isoformat()
     }
-    
+
     try:
         # 1. Get the latest STAC item to find the current CSV URLs
         stac_response = await client.get(stac_url)
         stac_response.raise_for_status()
         stac_data = stac_response.json()
-        
+
         if not stac_data.get("features"):
             print("No STAC features found")
             return results
-            
+
         assets = stac_data["features"][0].get("assets", {})
-        
+
     except Exception as e:
         print(f"Error fetching STAC metadata: {e}")
         return results
-        
+
     plz = settings.METEO_PLZ
     print(f"Fetching MeteoSuisse data for PLZ: {plz}")
-    
+
+    # 2. Resolve the numeric point_id(s) for this PLZ from the metadata CSV
+    point_ids = await _resolve_point_ids(client, plz)
+    if not point_ids:
+        print(f"Could not resolve any point_id for PLZ {plz}")
+        return results
+
     for param in HOURLY_PARAMS + DAILY_PARAMS:
         # Find the asset that ends with .{param}.csv
         target_asset = None
@@ -102,37 +128,27 @@ async def fetch_meteosuisse_data(client: httpx.AsyncClient):
             if asset_key.endswith(f".{param}.csv"):
                 target_asset = asset_val
                 break
-        
+
         if not target_asset:
             print(f"Could not find asset for param {param}")
             continue
-            
+
         url = target_asset["href"]
         try:
             response = await client.get(url)
             if response.status_code != 200:
                 print(f"Error fetching {param}: {response.status_code}")
                 continue
-                
+
             content = response.content.decode('latin-1')
             reader = csv.DictReader(io.StringIO(content), delimiter=';')
-            
+
             param_data = []
-            row_idx = 0
             for row in reader:
-                row_idx += 1
-                # Filter by point_type_id=2 (ZIP) and point_id=plz
-                p_type = row.get('point_type_id')
-                p_id = row.get('point_id')
-                
-                if row_idx < 5:
-                    print(f"DEBUG {param}: Row {row_idx} type={p_type} id={p_id}")
-                
-                if p_type == '2' and p_id == plz:
-                    # New format: 'Date' instead of 'valid_time', and column name is the param itself
+                if row.get('point_id') in point_ids:
                     raw_date = row.get('Date')
                     val_str = row.get(param)
-                    
+
                     if raw_date and val_str:
                         try:
                             # Convert YYYYMMDDHHMM to ISO format YYYY-MM-DDTHH:MM:00Z
@@ -143,7 +159,7 @@ async def fetch_meteosuisse_data(client: httpx.AsyncClient):
                             })
                         except ValueError:
                             continue
-            
+
             if param_data:
                 print(f"SUCCESS: Found {len(param_data)} entries for {param}")
                 if param in HOURLY_PARAMS:
@@ -151,12 +167,12 @@ async def fetch_meteosuisse_data(client: httpx.AsyncClient):
                 else:
                     results["daily"][param] = param_data
             else:
-                print(f"FAILURE: No matching point_id={plz} found in {row_idx} rows for {param}")
-                
+                print(f"FAILURE: No data found for {param} (point_ids={point_ids})")
+
         except Exception as e:
             print(f"Error fetching MeteoSuisse param {param} from {url}: {e}")
             continue
-            
+
     return results
 
 def get_24h_series(meteo_data: dict, param: str, target_date: datetime = None) -> List[Optional[float]]:
