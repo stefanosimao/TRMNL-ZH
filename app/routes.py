@@ -132,7 +132,7 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         "status": 0,
         "image_url": image_url,
         "filename": filename,
-        "refresh_rate": settings.TRMNL_REFRESH_RATE * 60,
+        "refresh_rate": settings.TRMNL_REFRESH_RATE,
         "update_firmware": False,
         "firmware_url": None,
         "reset_firmware": False

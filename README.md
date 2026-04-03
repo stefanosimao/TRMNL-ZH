@@ -138,6 +138,15 @@ python test_render.py
 # → generated/test_preview.png
 ```
 
+Fetch real data from all APIs and render what the device will actually receive:
+
+```bash
+python test_live_render.py
+# → generated/live_preview.png
+```
+
+SwitchBot credentials must be set in `.env` for the live render. Gemini summary shows a placeholder — start the full server for that.
+
 ---
 
 ## API Endpoints
@@ -164,6 +173,8 @@ python test_render.py
 }
 ```
 
+`refresh_rate` is in seconds. The default of 45 matches `TRMNL_REFRESH_RATE` in `.env`.
+
 ---
 
 ## Data Sources
@@ -180,11 +191,11 @@ python test_render.py
 
 | Source | Daily limit | Our usage |
 |--------|-------------|-----------|
-| search.ch stationboard | 10,080 | ~3,840 (2 stations × 1,920 requests) |
-| SwitchBot | 10,000 | ~576 (2 sensors × 288 requests) |
-| MeteoSwiss | None specified | 10 CSV files × 48 downloads |
-| Wetter-Alarm | None specified | 48 requests |
-| Gemini Flash | Quota-based | ~24–48 calls |
+| search.ch stationboard | 10,080 | ~3,840 (2 stations × 1,920 requests/day at 45s) |
+| SwitchBot | 10,000 | ~576 (2 sensors × 288 requests/day) |
+| MeteoSwiss | None specified | 528 downloads/day (11 CSV files × 48 fetches) |
+| Wetter-Alarm | None specified | 48 requests/day |
+| Gemini Flash | Quota-based | ~24–48 calls/day |
 
 ### Transit lines
 
@@ -207,7 +218,9 @@ Delays are shown inline (e.g. `12+2 min`). The minutes value already accounts fo
 ```
 TRMNL-ZH/
 ├── run.py                    Entry point: uvicorn server
-├── test_render.py            Offline layout preview (no credentials needed)
+├── test_render.py            Offline layout preview with mock data (no credentials needed)
+├── test_live_render.py       Live layout preview — fetches real data, saves generated/live_preview.png
+├── test_services.py          API connectivity check for all external services
 ├── requirements.txt
 ├── .env                      Credentials — do not commit
 │

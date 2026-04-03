@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     
     # TRMNL Device
     TRMNL_DEVICE_ID: str  # MAC address used in ID header for authentication
-    TRMNL_REFRESH_RATE: int = 45  # Polling interval in minutes for the e-ink display
+    TRMNL_REFRESH_RATE: int = 45  # Polling interval in seconds for the e-ink display
 
     # SwitchBot API (requires developer token and secret)
     SWITCHBOT_TOKEN: str
