@@ -1,5 +1,10 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+from dotenv import load_dotenv
+import os
+
+# Explicitly load .env file
+load_dotenv()
 
 class Settings(BaseSettings):
     """

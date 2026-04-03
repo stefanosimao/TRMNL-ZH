@@ -65,9 +65,10 @@ def get_sun_times():
 async def fetch_meteosuisse_data(client: httpx.AsyncClient):
     """
     Downloads forecast CSVs for all parameters for PLZ 8047.
+    Uses STAC API to find the latest available CSV files.
     Returns structured hourly and daily data.
     """
-    base_url = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasting"
+    stac_url = "https://data.geo.admin.ch/api/stac/v1/collections/ch.meteoschweiz.ogd-local-forecasting/items?limit=1"
     
     results = {
         "hourly": {},
@@ -75,34 +76,85 @@ async def fetch_meteosuisse_data(client: httpx.AsyncClient):
         "last_updated": datetime.now().isoformat()
     }
     
+    try:
+        # 1. Get the latest STAC item to find the current CSV URLs
+        stac_response = await client.get(stac_url)
+        stac_response.raise_for_status()
+        stac_data = stac_response.json()
+        
+        if not stac_data.get("features"):
+            print("No STAC features found")
+            return results
+            
+        assets = stac_data["features"][0].get("assets", {})
+        
+    except Exception as e:
+        print(f"Error fetching STAC metadata: {e}")
+        return results
+        
     plz = settings.METEO_PLZ
+    print(f"Fetching MeteoSuisse data for PLZ: {plz}")
     
     for param in HOURLY_PARAMS + DAILY_PARAMS:
-        url = f"{base_url}/ch.meteoschweiz.ogd-local-forecasting_{param}_v1.2.csv"
+        # Find the asset that ends with .{param}.csv
+        target_asset = None
+        for asset_key, asset_val in assets.items():
+            if asset_key.endswith(f".{param}.csv"):
+                target_asset = asset_val
+                break
+        
+        if not target_asset:
+            print(f"Could not find asset for param {param}")
+            continue
+            
+        url = target_asset["href"]
         try:
             response = await client.get(url)
             if response.status_code != 200:
+                print(f"Error fetching {param}: {response.status_code}")
                 continue
                 
             content = response.content.decode('latin-1')
             reader = csv.DictReader(io.StringIO(content), delimiter=';')
             
             param_data = []
+            row_idx = 0
             for row in reader:
-                if row.get('point_type_id') == '2' and row.get('point_id') == plz:
-                    val_str = row.get('value')
-                    param_data.append({
-                        "valid_time": row.get('valid_time'),
-                        "value": float(val_str) if val_str and val_str.strip() else 0.0
-                    })
+                row_idx += 1
+                # Filter by point_type_id=2 (ZIP) and point_id=plz
+                p_type = row.get('point_type_id')
+                p_id = row.get('point_id')
+                
+                if row_idx < 5:
+                    print(f"DEBUG {param}: Row {row_idx} type={p_type} id={p_id}")
+                
+                if p_type == '2' and p_id == plz:
+                    # New format: 'Date' instead of 'valid_time', and column name is the param itself
+                    raw_date = row.get('Date')
+                    val_str = row.get(param)
+                    
+                    if raw_date and val_str:
+                        try:
+                            # Convert YYYYMMDDHHMM to ISO format YYYY-MM-DDTHH:MM:00Z
+                            iso_date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}T{raw_date[8:10]}:{raw_date[10:12]}:00Z"
+                            param_data.append({
+                                "valid_time": iso_date,
+                                "value": float(val_str) if val_str.strip() else 0.0
+                            })
+                        except ValueError:
+                            continue
             
-            if param in HOURLY_PARAMS:
-                results["hourly"][param] = param_data
+            if param_data:
+                print(f"SUCCESS: Found {len(param_data)} entries for {param}")
+                if param in HOURLY_PARAMS:
+                    results["hourly"][param] = param_data
+                else:
+                    results["daily"][param] = param_data
             else:
-                results["daily"][param] = param_data
+                print(f"FAILURE: No matching point_id={plz} found in {row_idx} rows for {param}")
                 
         except Exception as e:
-            print(f"Error fetching MeteoSuisse param {param}: {e}")
+            print(f"Error fetching MeteoSuisse param {param} from {url}: {e}")
             continue
             
     return results
