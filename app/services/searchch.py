@@ -5,40 +5,43 @@ from ..config import settings
 
 _ZURICH_TZ = ZoneInfo("Europe/Zurich")
 
-# Lazily built on first call so module-level evaluation doesn't race with settings load.
-_STATION_FILTERS: dict | None = None
-
-
-def _get_filters() -> dict:
-    global _STATION_FILTERS
-    if _STATION_FILTERS is None:
-        _STATION_FILTERS = {
-            settings.TRANSIT_STATION_1: [
-                {"line": "3",  "terminals": ["Klusplatz"], "count": 2},
-                {"line": "80", "terminals": ["Triemli"],   "count": 1},
-                {"line": "80", "terminals": ["Oerlikon"],  "count": 2},
-            ],
-            settings.TRANSIT_STATION_2: [
-                {"line": "3",  "terminals": ["Klusplatz"],  "count": 2},
-                {"line": "67", "terminals": ["Wiedikon"],   "count": 2},
-                {"line": "67", "terminals": ["Milchbuck"],  "count": 2},
-            ],
-        }
-    return _STATION_FILTERS
+def _get_filters(now: datetime) -> dict:
+    """
+    Returns the transit filters for each station.
+    Station 2 is configured to show only the next Bus 67 in each direction.
+    Station 1 includes the N3 Nachtbus during weekend late nights (1 AM - 4 AM).
+    """
+    filters = {
+        settings.TRANSIT_STATION_1: [
+            {"line": "3",  "terminals": ["Klusplatz"], "count": 2},
+            {"line": "80", "terminals": ["Triemli"],   "count": 1},
+            {"line": "80", "terminals": ["Oerlikon"],  "count": 2},
+        ],
+        settings.TRANSIT_STATION_2: [
+            {"line": "67", "terminals": ["Wiedikon"],      "count": 1},
+            {"line": "67", "terminals": ["Dunkelhölzli"],  "count": 1},
+        ],
+    }
+    
+    # Nachtbus N3 logic: Saturday morning or Sunday morning, 1 AM - 4 AM
+    # weekday(): 5 = Saturday, 6 = Sunday
+    if now.weekday() in (5, 6) and 1 <= now.hour < 4:
+        filters[settings.TRANSIT_STATION_1].append(
+            {"line": "N3", "terminals": ["Bahnhofplatz"], "count": 1}
+        )
+    
+    return filters
 
 
 async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
     """
     Fetches upcoming public transit departures for a given station using the search.ch API.
     Applies station-specific filtering and calculates minutes until actual departure.
-
-    Departure times from search.ch are in Swiss local time (Europe/Zurich).
-    The comparison uses timezone-aware datetimes so the result is correct on UTC servers.
     """
     url = "https://timetable.search.ch/api/stationboard.json"
     params = {
-        "stop": station,           # search.ch expects "stop", not "station"
-        "limit": 30,
+        "stop": station,
+        "limit": 40,
         "show_delays": 1,
         "transportation_types": "tram,bus",
     }
@@ -48,10 +51,10 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
     data = response.json()
 
     connections = data.get("connections", [])
-    filters = _get_filters().get(station, [])
+    now = datetime.now(_ZURICH_TZ)
+    filters = _get_filters(now).get(station, [])
 
     results = []
-    now = datetime.now(_ZURICH_TZ)
 
     for f in filters:
         count = 0
@@ -68,7 +71,7 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
                 continue
 
             try:
-                # search.ch returns naive local Swiss time — attach the Zurich timezone
+                # search.ch returns naive local Swiss time
                 dep_time = datetime.fromisoformat(dep_time_str).replace(tzinfo=_ZURICH_TZ)
             except ValueError:
                 continue
@@ -89,7 +92,7 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
 
             results.append({
                 "line":        conn.get("line"),
-                "destination": terminal,
+                "destination": terminal.replace("Zürich, ", ""), # Clean up destination
                 "minutes":     minutes,
                 "delay":       delay,
                 "time":        dep_time.strftime("%H:%M"),
@@ -98,4 +101,6 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
             if count >= f["count"]:
                 break
 
+    # Sort results by minutes until departure
+    results.sort(key=lambda x: x["minutes"])
     return results

@@ -5,7 +5,10 @@ from astral import LocationInfo
 from astral.sun import sun
 from datetime import datetime, date, timedelta
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 from ..config import settings
+
+_ZURICH_TZ = ZoneInfo("Europe/Zurich")
 
 HOURLY_PARAMS = [
     "tre200h0",  # Air temperature 2m, hourly mean (°C)
@@ -31,7 +34,7 @@ def get_daily_forecast(meteo_data: dict, days_offset: int = 0):
     if not meteo_data or "daily" not in meteo_data:
         return None
         
-    target_date = date.today() + timedelta(days=days_offset)
+    target_date = datetime.now(_ZURICH_TZ).date() + timedelta(days=days_offset)
     date_str = target_date.strftime("%Y-%m-%d")
     
     res = {"date": target_date, "max_temp": None, "min_temp": None, "precip": None, "pictogram": None}
@@ -53,15 +56,19 @@ def get_daily_forecast(meteo_data: dict, days_offset: int = 0):
                 
     return res
 
-def get_sun_times() -> dict:
+def get_sun_times(target_date: Optional[date] = None) -> dict:
     """
     Calculates sunrise and sunset times for Zurich (47.37N, 8.52E).
     
+    Args:
+        target_date (Optional[date]): The date to calculate sun times for. Defaults to today.
+
     Returns:
         dict: A dictionary containing 'sunrise' and 'sunset' formatted as 'HH:MM'.
     """
+    target_date = target_date or datetime.now(_ZURICH_TZ).date()
     city = LocationInfo("Zurich", "Switzerland", "Europe/Zurich", 47.37, 8.52)
-    s = sun(city.observer, date=date.today())
+    s = sun(city.observer, date=target_date, tzinfo=_ZURICH_TZ)
     return {
         "sunrise": s["sunrise"].strftime("%H:%M"),
         "sunset": s["sunset"].strftime("%H:%M")
@@ -191,7 +198,7 @@ def get_24h_series(meteo_data: dict, param: str, target_date: datetime = None) -
     if not series:
         return [None] * 24
         
-    target_date = target_date or datetime.now()
+    target_date = target_date or datetime.now(_ZURICH_TZ)
     date_str = target_date.strftime("%Y-%m-%d")
     
     # Initialize 24 slots
@@ -212,14 +219,8 @@ def get_24h_series(meteo_data: dict, param: str, target_date: datetime = None) -
 
 def get_current_conditions(meteo_data: dict) -> dict:
     """
-    Extracts the current hour's temperature and conditions from the 
-    MeteoSwiss hourly forecast data series.
-    
-    Args:
-        meteo_data: The full parsed dictionary containing 'hourly' and 'daily' keys.
-        
-    Returns:
-        dict: A dictionary containing 'temp' and 'plz', or an empty dictionary if unavailable.
+    Extracts the current hour's temperature by aligning local Zurich time
+    with the UTC valid_time in the MeteoSuisse data.
     """
     if not meteo_data or "hourly" not in meteo_data:
         return {}
@@ -228,21 +229,19 @@ def get_current_conditions(meteo_data: dict) -> dict:
     if not temp_series:
         return {}
         
-    now = datetime.now()
-    now_hour = now.hour
-    date_str = now.strftime("%Y-%m-%d")
+    now_zurich = datetime.now(_ZURICH_TZ)
     
+    # Find the entry closest to the current time in Zurich
     current_temp = None
-    for entry in temp_series:
-        if entry["valid_time"].startswith(date_str):
-            hour = int(entry["valid_time"].split('T')[1].split(':')[0])
-            if hour == now_hour:
-                current_temp = entry["value"]
-                break
+    min_diff = timedelta(hours=24)
     
-    # Fallback to first available if current hour not found
-    if current_temp is None and temp_series:
-        current_temp = temp_series[0]["value"]
+    for entry in temp_series:
+        # valid_time: "2026-04-02T15:00:00Z"
+        v_time_utc = datetime.fromisoformat(entry["valid_time"].replace("Z", "+00:00"))
+        diff = abs(now_zurich - v_time_utc)
+        if diff < min_diff:
+            min_diff = diff
+            current_temp = entry["value"]
     
     return {
         "temp": current_temp,

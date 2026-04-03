@@ -4,6 +4,7 @@ from .fonts import get_font
 from .transit import render_transit_section
 from .charts import render_weather_charts
 from .weather_icons import draw_weather_icon
+from ..services.meteosuisse import get_daily_forecast, get_sun_times
 
 # Italian abbreviated day names (Monday=0 … Sunday=6)
 _IT_DAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"]
@@ -30,20 +31,6 @@ def compose_screen(data: dict) -> Image.Image:
 
     Left panel (555px): current temperatures, 3-day forecast, 24h charts.
     Right panel (245px): transit departures, AI summary, clock/metadata.
-
-    Args:
-        data (dict): Dictionary with keys:
-            weather    – {indoor, outdoor, meteo} temperature dicts
-            transit    – {station_1, station_2} departure lists
-            summary    – Italian summary string from Gemini
-            battery    – int percentage or None
-            timestamps – {switchbot, meteo, summary} "HH:MM" strings
-            sun_times  – {sunrise, sunset} "HH:MM" strings
-            forecasts  – list of 3 daily forecast dicts (today, tomorrow, day after)
-            series     – {temp, precip, sun, wind} lists of 24 hourly values
-
-    Returns:
-        Image.Image: The rendered 800x480 PIL Image object.
     """
     img  = Image.new("1", (800, 480), 255)
     draw = ImageDraw.Draw(img)
@@ -74,9 +61,8 @@ def compose_screen(data: dict) -> Image.Image:
         draw.text((x + 8, 22), temp_str, font=font_bold, fill=0)
 
     # ── Row 2: 3-day forecast tiles ───────────────────────────────────────────
-    sun_times = data.get("sun_times", {})
-    forecasts = data.get("forecasts", [None, None, None])
-    today     = date.today()
+    meteo_full = data.get("meteo_full")
+    today      = date.today()
 
     forecast_labels = ["OGGI", "DOMANI", _it_day_label(today + timedelta(days=2))]
     for i, label in enumerate(forecast_labels):
@@ -84,7 +70,7 @@ def compose_screen(data: dict) -> Image.Image:
         draw.rectangle([x + 4, 62, x + tile_w - 4, 152], outline=0, width=1)
         draw.text((x + 8, 65), label, font=font_tiny, fill=0)
 
-        forecast = forecasts[i] if i < len(forecasts) else None
+        forecast = get_daily_forecast(meteo_full, days_offset=i)
         if forecast:
             draw_weather_icon(draw, x + 8, 80, forecast.get("pictogram"))
 
@@ -94,28 +80,36 @@ def compose_screen(data: dict) -> Image.Image:
             max_s = f"{max_t:.0f}" if isinstance(max_t, float) else "--"
             draw.text((x + 55, 80), f"{min_s}/{max_s}°", font=font_reg, fill=0)
 
-            if i == 0:
-                draw.text((x + 55, 102),
-                          f"↑{sun_times.get('sunrise', '--:--')} ↓{sun_times.get('sunset', '--:--')}",
-                          font=font_tiny, fill=0)
+            # Show sunrise/sunset for all three days
+            day_sun = get_sun_times(today + timedelta(days=i))
+            draw.text((x + 55, 102),
+                      f"↑{day_sun['sunrise']} ↓{day_sun['sunset']}",
+                      font=font_tiny, fill=0)
 
             precip = forecast.get("precip") or 0
             draw.text((x + 55, 120), f"{precip:.1f}mm", font=font_tiny, fill=0)
 
     # ── Rows 3+4: Charts ──────────────────────────────────────────────────────
     series = data.get("series", {})
-    if series:
-        render_weather_charts(
-            draw, 10, 158,
-            temp_data=series.get("temp",   [None] * 24),
-            prec_data=series.get("precip", [None] * 24),
-            sun_data=series.get("sun",     [None] * 24),
-            wind_data=series.get("wind",   [None] * 24),
-            sunrise=sun_times.get("sunrise"),
-            sunset=sun_times.get("sunset"),
-        )
-    else:
-        draw.text((20, 175), "Dati MeteoSuisse non disponibili", font=font_reg, fill=0)
+    if not series and meteo_full:
+        from ..services.meteosuisse import get_24h_series
+        series = {
+            "temp":   get_24h_series(meteo_full, "tre200h0"),
+            "precip": get_24h_series(meteo_full, "rre150h0"),
+            "sun":    get_24h_series(meteo_full, "sre000h0"),
+            "wind":   get_24h_series(meteo_full, "fu3010h0"),
+        }
+
+    sun_times = get_sun_times(today)
+    render_weather_charts(
+        draw, 10, 158,
+        temp_data=series.get("temp",   [None] * 24),
+        prec_data=series.get("precip", [None] * 24),
+        sun_data=series.get("sun",     [None] * 24),
+        wind_data=series.get("wind",   [None] * 24),
+        sunrise=sun_times.get("sunrise"),
+        sunset=sun_times.get("sunset"),
+    )
 
     # ── Footer (left side) ───────────────────────────────────────────────────
     ts = data.get("timestamps", {})
@@ -134,8 +128,9 @@ def compose_screen(data: dict) -> Image.Image:
     y = render_transit_section(draw, rx, y + 8, "FELLENBERGSTR.", transit.get("station_2", []))
 
     # ── Summary tile ─────────────────────────────────────────────────────────
+    # Since Station 2 only shows 2 rows now, we can grow the summary box a lot.
     summary_y      = y + 8
-    summary_bottom = 390
+    summary_bottom = 425 # Extended down (was 410)
     draw.rectangle([rx, summary_y, 796, summary_bottom], outline=0, width=1)
 
     draw.rectangle([rx, summary_y, 796, summary_y + 18], fill=0)
@@ -143,7 +138,7 @@ def compose_screen(data: dict) -> Image.Image:
     draw.text((rx + 4, summary_y + 22),
               f"aggiornato {ts.get('summary', '--:--')}", font=font_tiny, fill=0)
 
-    # Word-wrap summary text using actual pixel width measurement
+    # Word-wrap summary text
     summary_text = data.get("summary", "Caricamento riepilogo intelligente...")
     max_px = 796 - rx - 8
     lines, current_line = [], ""
@@ -160,23 +155,22 @@ def compose_screen(data: dict) -> Image.Image:
         lines.append(current_line)
 
     text_y = summary_y + 36
-    for line in lines[:7]:
+    # Calculate how many lines fit
+    for line in lines:
+        if text_y + 13 > summary_bottom - 4:
+            break
         draw.text((rx + 4, text_y), line, font=font_tiny, fill=0)
         text_y += 13
 
     # ── Clock + date section ──────────────────────────────────────────────────
-    clock_y = summary_bottom + 6
+    clock_y = summary_bottom + 2
     now = datetime.now()
 
     draw.text((rx, clock_y), now.strftime("%H:%M"), font=font_bold_lg, fill=0)
-    draw.text((rx, clock_y + 34), _it_full_date(today), font=font_small, fill=0)
+    draw.text((rx + 85, clock_y + 10), _it_day_label(today), font=font_small, fill=0)
 
     battery = data.get("battery")
-    detail_y = clock_y + 50
     if battery is not None:
-        draw.text((rx, detail_y), f"Batteria: {battery}%", font=font_tiny, fill=0)
-        detail_y += 14
-
-    draw.text((rx, detail_y), f"ultimo agg.: {now.strftime('%H:%M:%S')}", font=font_tiny, fill=0)
+        draw.text((rx + 180, clock_y + 10), f"⚡{battery}%", font=font_tiny, fill=0)
 
     return img

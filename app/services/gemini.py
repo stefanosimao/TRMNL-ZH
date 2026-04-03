@@ -15,7 +15,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
 
     lines = [
         "Sei un assistente meteo per Zurigo, zona Albisrieden (PLZ 8047).",
-        "Scrivi UN paragrafo conciso in italiano (3-5 frasi) con:",
+        "Scrivi UN paragrafo conciso in italiano (MAX 600 CARATTERI) con:",
         "- Condizioni attuali e previsioni per oggi/domani",
         "- Consigli abbigliamento / ombrello",
         "- Eventuali allerte meteo attive",
@@ -45,24 +45,13 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
             lines.append(f"  Linea {dep['line']} → {dep['destination']}: {dep['minutes']} min{delay_str}")
 
     lines.append("")
-    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi.")
+    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 600 caratteri.")
     return "\n".join(lines)
 
 
 async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
     """
     Calls the Gemini 2.5 Flash API to generate an Italian weather and transit summary.
-    Because the google-genai client's `generate_content` is synchronous, this function
-    offloads the execution to a separate thread using `asyncio.to_thread()` to prevent
-    blocking the FastAPI asynchronous event loop.
-    
-    Args:
-        weather: A dictionary containing indoor, outdoor, and meteo temperatures.
-        transit: A dictionary containing upcoming station_1 and station_2 departures.
-        alerts: A list of active weather alerts.
-        
-    Returns:
-        str: A concise 3-5 sentence Italian summary.
     """
     if not settings.GEMINI_API_KEY:
         return "Gemini API key non configurata."
@@ -70,13 +59,17 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         prompt = _build_prompt(weather, transit, alerts)
-        # generate_content is synchronous — run in a thread to avoid blocking the event loop
+        
         response = await asyncio.to_thread(
             client.models.generate_content,
             model="gemini-2.5-flash",
             contents=prompt,
         )
-        return response.text.strip()
+        text = response.text.strip()
+        # Safety truncate if model ignores prompt instruction
+        if len(text) > 700:
+            text = text[:697] + "..."
+        return text
     except Exception as e:
         print(f"Gemini error: {e}")
         return f"Riepilogo non disponibile ({datetime.now().strftime('%H:%M')})."
