@@ -15,7 +15,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
 
     lines = [
         "Sei un assistente meteo per Zurigo, zona Albisrieden (PLZ 8047).",
-        "Scrivi UN paragrafo conciso in italiano (MAX 600 CARATTERI) con:",
+        "Scrivi UN paragrafo conciso in italiano (MAX 450 CARATTERI) con:",
         "- Condizioni attuali e previsioni per oggi/domani",
         "- Consigli abbigliamento / ombrello",
         "- Eventuali allerte meteo attive",
@@ -45,7 +45,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
             lines.append(f"  Linea {dep['line']} → {dep['destination']}: {dep['minutes']} min{delay_str}")
 
     lines.append("")
-    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 600 caratteri.")
+    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 450 caratteri.")
     return "\n".join(lines)
 
 
@@ -67,8 +67,8 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
         )
         text = response.text.strip()
         # Safety truncate if model ignores prompt instruction
-        if len(text) > 700:
-            text = text[:697] + "..."
+        if len(text) > 450:
+            text = text[:447] + "..."
         return text
     except Exception as e:
         print(f"Gemini error: {e}")

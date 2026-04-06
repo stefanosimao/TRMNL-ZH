@@ -205,17 +205,32 @@ def get_24h_series(meteo_data: dict, param: str, target_date: datetime = None) -
     day_data = [None] * 24
     
     for entry in series:
-        # valid_time format: "2026-04-02T15:00:00Z"
-        v_time = entry["valid_time"]
-        if v_time.startswith(date_str):
-            try:
-                hour = int(v_time.split('T')[1].split(':')[0])
-                if 0 <= hour < 24:
-                    day_data[hour] = entry["value"]
-            except (IndexError, ValueError):
-                continue
+        # valid_time is UTC: "2026-04-02T15:00:00Z" → convert to Zurich local time
+        try:
+            v_utc = datetime.fromisoformat(entry["valid_time"].replace("Z", "+00:00"))
+            v_local = v_utc.astimezone(_ZURICH_TZ)
+            if v_local.strftime("%Y-%m-%d") == date_str:
+                day_data[v_local.hour] = entry["value"]
+        except (ValueError, KeyError):
+            continue
                 
     return day_data
+
+def get_next_24h_series(meteo_data: dict, param: str, lookback: int = 1) -> List[Optional[float]]:
+    """
+    Returns 24 values: `lookback` past hours + (24 - lookback) future hours.
+    Index `lookback` is always the current hour (ORA).
+    Spans yesterday/today/tomorrow as needed.
+    """
+    now = datetime.now(_ZURICH_TZ)
+    start = now - timedelta(hours=lookback)
+    result = []
+    for offset in range(24):
+        target_dt = start + timedelta(hours=offset)
+        day_series = get_24h_series(meteo_data, param, target_dt)
+        result.append(day_series[target_dt.hour])
+    return result
+
 
 def get_current_conditions(meteo_data: dict) -> dict:
     """

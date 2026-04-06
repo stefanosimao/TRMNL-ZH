@@ -4,7 +4,8 @@ from .fonts import get_font
 from .transit import render_transit_section
 from .charts import render_weather_charts
 from .weather_icons import draw_weather_icon
-from ..services.meteosuisse import get_daily_forecast, get_sun_times
+from ..services.meteosuisse import get_daily_forecast, get_sun_times, get_next_24h_series
+from zoneinfo import ZoneInfo
 
 # Italian abbreviated day names (Monday=0 … Sunday=6)
 _IT_DAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"]
@@ -83,7 +84,7 @@ def compose_screen(data: dict) -> Image.Image:
             # Show sunrise/sunset for all three days
             day_sun = get_sun_times(today + timedelta(days=i))
             draw.text((x + 55, 102),
-                      f"↑{day_sun['sunrise']} ↓{day_sun['sunset']}",
+                      f"^{day_sun['sunrise']} v{day_sun['sunset']}",
                       font=font_tiny, fill=0)
 
             precip = forecast.get("precip") or 0
@@ -92,32 +93,28 @@ def compose_screen(data: dict) -> Image.Image:
     # ── Rows 3+4: Charts ──────────────────────────────────────────────────────
     series = data.get("series", {})
     if not series and meteo_full:
-        from ..services.meteosuisse import get_24h_series
         series = {
-            "temp":   get_24h_series(meteo_full, "tre200h0"),
-            "precip": get_24h_series(meteo_full, "rre150h0"),
-            "sun":    get_24h_series(meteo_full, "sre000h0"),
-            "wind":   get_24h_series(meteo_full, "fu3010h0"),
+            "temp":   get_next_24h_series(meteo_full, "tre200h0"),
+            "precip": get_next_24h_series(meteo_full, "rre150h0"),
+            "sun":    get_next_24h_series(meteo_full, "sre000h0"),
+            "wind":   get_next_24h_series(meteo_full, "fu3010h0"),
         }
 
+    _now_zh = datetime.now(ZoneInfo("Europe/Zurich"))
+    start_hour = (_now_zh.hour - 1) % 24
     sun_times = get_sun_times(today)
     render_weather_charts(
-        draw, 10, 158,
+        draw, 10, 155,
         temp_data=series.get("temp",   [None] * 24),
         prec_data=series.get("precip", [None] * 24),
         sun_data=series.get("sun",     [None] * 24),
         wind_data=series.get("wind",   [None] * 24),
         sunrise=sun_times.get("sunrise"),
         sunset=sun_times.get("sunset"),
+        start_hour=start_hour,
     )
 
-    # ── Footer (left side) ───────────────────────────────────────────────────
     ts = data.get("timestamps", {})
-    footer = (f"SwitchBot: {ts.get('switchbot', '--:--')} · "
-              f"Meteo: {ts.get('meteo', '--:--')} · "
-              f"Riepilogo: {ts.get('summary', '--:--')} · "
-              f"Fonte: MeteoSwiss PLZ 8047")
-    draw.text((6, 466), footer, font=font_tiny, fill=0)
 
     # ── RIGHT SIDE ────────────────────────────────────────────────────────────
     rx = 560
@@ -164,13 +161,18 @@ def compose_screen(data: dict) -> Image.Image:
 
     # ── Clock + date section ──────────────────────────────────────────────────
     clock_y = summary_bottom + 2
-    now = datetime.now()
 
-    draw.text((rx, clock_y), now.strftime("%H:%M"), font=font_bold_lg, fill=0)
-    draw.text((rx + 85, clock_y + 10), _it_day_label(today), font=font_small, fill=0)
+    draw.text((rx, clock_y), _it_day_label(today), font=font_bold, fill=0)
 
     battery = data.get("battery")
     if battery is not None:
-        draw.text((rx + 180, clock_y + 10), f"⚡{battery}%", font=font_tiny, fill=0)
+        draw.text((rx + 155, clock_y + 4), f"{battery}%", font=font_tiny, fill=0)
+
+    # Timestamps + source
+    ts_line = (f"SB {ts.get('switchbot', '--')}  "
+               f"M {ts.get('meteo', '--')}  "
+               f"G {ts.get('summary', '--')}")
+    draw.text((rx, clock_y + 22), ts_line, font=font_tiny, fill=0)
+    draw.text((rx, clock_y + 34), "MeteoSwiss PLZ 8047", font=font_tiny, fill=0)
 
     return img

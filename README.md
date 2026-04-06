@@ -8,16 +8,16 @@ A custom BYOS (Bring Your Own Server) backend for a [TRMNL](https://usetrmnl.com
 
 ## What it shows
 
-| Section | Content |
-|---------|---------|
-| Temperature row | Indoor (SwitchBot), balcony (SwitchBot), Zürich 8047 (MeteoSwiss) |
-| 3-day forecast | Min/max °C, weather icon, sunrise/sunset, daily precipitation |
-| Chart 1 | 24h temperature curve + precipitation bars, current-hour marker |
-| Chart 2 | 24h sunshine bars + wind speed line, sunrise/sunset markers |
-| Transit — Albisrieden | Tram 3 → Klusplatz ×2, Bus 80 → Triemli ×1, Bus 80 → Oerlikon ×2 |
-| Transit — Fellenbergstr. | Tram 3 → Klusplatz ×2, Bus 67 → Wiedikon ×2, Bus 67 → Milchbuck ×2 |
-| Riepilogo Intelligente | Gemini 2.5 Flash Italian summary: weather advice, alerts, transit tips |
-| Clock | HH:MM (large), Italian date, battery %, last-refresh timestamp |
+| Section                  | Content                                                                |
+| ------------------------ | ---------------------------------------------------------------------- |
+| Temperature row          | Indoor (SwitchBot), balcony (SwitchBot), Zürich 8047 (MeteoSwiss)      |
+| 3-day forecast           | Min/max °C, weather icon, sunrise/sunset, daily precipitation          |
+| Chart 1                  | 24h temperature curve + precipitation bars, current-hour marker        |
+| Chart 2                  | 24h sunshine bars + wind speed line, sunrise/sunset markers            |
+| Transit — Albisrieden    | Tram 3 → Klusplatz ×2, Bus 80 → Triemli ×1, Bus 80 → Oerlikon ×2       |
+| Transit — Fellenbergstr. | Tram 3 → Klusplatz ×2, Bus 67 → Wiedikon ×2, Bus 67 → Milchbuck ×2     |
+| Riepilogo Intelligente   | Gemini 2.5 Flash Italian summary: weather advice, alerts, transit tips |
+| Clock                    | HH:MM (large), Italian date, battery %, last-refresh timestamp         |
 
 All UI text is in Italian.
 
@@ -151,14 +151,14 @@ SwitchBot credentials must be set in `.env` for the live render. Gemini summary 
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/display` | Main BYOS endpoint. Requires `ID` header = `TRMNL_DEVICE_ID`. |
-| `POST` | `/api/log` | Receives device log messages (printed to stdout). |
-| `POST` | `/api/setup` | Device provisioning — returns `{"status": "ready"}`. |
-| `GET` | `/api/health` | Health check — returns `{"status": "healthy"}`. |
-| `GET` | `/generated/screen.png` | The rendered display image (served as a static file). |
-| `GET` | `/docs` | Auto-generated OpenAPI / Swagger UI. |
+| Method | Path                    | Description                                                   |
+| ------ | ----------------------- | ------------------------------------------------------------- |
+| `GET`  | `/api/display`          | Main BYOS endpoint. Requires `ID` header = `TRMNL_DEVICE_ID`. |
+| `POST` | `/api/log`              | Receives device log messages (printed to stdout).             |
+| `POST` | `/api/setup`            | Device provisioning — returns `{"status": "ready"}`.          |
+| `GET`  | `/api/health`           | Health check — returns `{"status": "healthy"}`.               |
+| `GET`  | `/generated/screen.png` | The rendered display image (served as a static file).         |
+| `GET`  | `/docs`                 | Auto-generated OpenAPI / Swagger UI.                          |
 
 ### BYOS response format
 
@@ -179,32 +179,34 @@ SwitchBot credentials must be set in `.env` for the live render. Gemini summary 
 
 ## Data Sources
 
-| Source | Data | Update interval | Auth |
-|--------|------|-----------------|------|
-| [search.ch timetable API](https://timetable.search.ch/api/help) | Live tram/bus departures | Every request (live) | None |
-| [SwitchBot API v1.1](https://github.com/OpenWonderLabs/SwitchBotAPI) | Temperature, humidity, battery for 2 sensors | Every 5 min | HMAC-SHA256 |
-| [MeteoSwiss Open Data E4](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data) | Hourly + daily forecast for PLZ 8047 | Every 30 min | None |
-| [Wetter-Alarm](https://wetteralarm.ch) — POI 142941 | Active weather alerts for Albisrieden | Every 30 min | None |
-| [Gemini 2.5 Flash](https://ai.google.dev) | Italian summary paragraph | Every 60 min (or on new alert) | Google API key |
+| Source                                                                                               | Data                                         | Update interval                | Auth           |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------ | -------------- |
+| [search.ch timetable API](https://timetable.search.ch/api/help)                                      | Live tram/bus departures                     | Every request (live)           | None           |
+| [SwitchBot API v1.1](https://github.com/OpenWonderLabs/SwitchBotAPI)                                 | Temperature, humidity, battery for 2 sensors | Every 5 min                    | HMAC-SHA256    |
+| [MeteoSwiss Open Data E4](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data) | Hourly + daily forecast for PLZ 8047         | Every 30 min                   | None           |
+| [Wetter-Alarm](https://wetteralarm.ch) — POI 142941                                                  | Active weather alerts for Albisrieden        | Every 30 min                   | None           |
+| [Gemini 2.5 Flash](https://ai.google.dev)                                                            | Italian summary paragraph                    | Every 60 min (or on new alert) | Google API key |
 
 ### Rate limits and daily usage
 
-| Source | Daily limit | Our usage |
-|--------|-------------|-----------|
-| search.ch stationboard | 10,080 | ~3,840 (2 stations × 1,920 requests/day at 45s) |
-| SwitchBot | 10,000 | ~576 (2 sensors × 288 requests/day) |
-| MeteoSwiss | None specified | 528 downloads/day (11 CSV files × 48 fetches) |
-| Wetter-Alarm | None specified | 48 requests/day |
-| Gemini Flash | Quota-based | ~24–48 calls/day |
+| Source                 | Daily limit    | Our usage                                       |
+| ---------------------- | -------------- | ----------------------------------------------- |
+| search.ch stationboard | 10,080         | ~3,840 (2 stations × 1,920 requests/day at 45s) |
+| SwitchBot              | 10,000         | ~576 (2 sensors × 288 requests/day)             |
+| MeteoSwiss             | None specified | 528 downloads/day (11 CSV files × 48 fetches)   |
+| Wetter-Alarm           | None specified | 48 requests/day                                 |
+| Gemini Flash           | Quota-based    | ~24–48 calls/day                                |
 
 ### Transit lines
 
 **Zürich, Albisrieden** — next departures shown:
+
 - Tram 3 → Klusplatz (next 2)
 - Bus 80 → Triemli (next 1)
 - Bus 80 → Oerlikon (next 2)
 
 **Zürich, Fellenbergstrasse** — next departures shown:
+
 - Tram 3 → Klusplatz (next 2)
 - Bus 67 → Wiedikon (next 2)
 - Bus 67 → Milchbuck (next 2)
@@ -270,11 +272,11 @@ Update `BASE_URL` in `.env` to the tunnel URL so the device can reach `image_url
 
 The server must be always-on — APScheduler runs background jobs continuously. Serverless / Lambda won't work.
 
-| Platform | Cost | Notes |
-|----------|------|-------|
-| [Fly.io](https://fly.io) | Free (256 MB VM) | `flyctl launch && flyctl deploy` |
-| [Hetzner Cloud](https://hetzner.com) | ~€4/mo | CX11 in Zürich — lowest latency to search.ch |
-| [AWS Lightsail](https://aws.amazon.com/lightsail/) | $3.50/mo | 3-month free trial |
+| Platform                                           | Cost             | Notes                                        |
+| -------------------------------------------------- | ---------------- | -------------------------------------------- |
+| [Fly.io](https://fly.io)                           | Free (256 MB VM) | `flyctl launch && flyctl deploy`             |
+| [Hetzner Cloud](https://hetzner.com)               | ~€4/mo           | CX11 in Zürich — lowest latency to search.ch |
+| [AWS Lightsail](https://aws.amazon.com/lightsail/) | $3.50/mo         | 3-month free trial                           |
 
 Set secrets via your platform's secret manager (e.g. `flyctl secrets set KEY=value`) rather than committing `.env`.
 
@@ -284,13 +286,13 @@ Set secrets via your platform's secret manager (e.g. `flyctl secrets set KEY=val
 
 Each data source degrades independently — the display is never blank.
 
-| Source fails | Behaviour |
-|-------------|-----------|
-| search.ch | Shows `--:--` timestamp next to transit section |
-| SwitchBot | Shows `--` for affected temperature tiles |
-| MeteoSwiss | Shows last cached forecast (updates hourly anyway) |
-| Gemini | Shows last cached summary or "Riepilogo non disponibile HH:MM" |
-| Wetter-Alarm | No alert shown (safe default — never false-positive) |
+| Source fails   | Behaviour                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| search.ch      | Shows `--:--` timestamp next to transit section                                           |
+| SwitchBot      | Shows `--` for affected temperature tiles                                                 |
+| MeteoSwiss     | Shows last cached forecast (updates hourly anyway)                                        |
+| Gemini         | Shows last cached summary or "Riepilogo non disponibile HH:MM"                            |
+| Wetter-Alarm   | No alert shown (safe default — never false-positive)                                      |
 | Renderer crash | Serves a fallback error image with error message + timestamp; device never receives a 500 |
 
 ---

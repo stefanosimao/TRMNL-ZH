@@ -11,7 +11,7 @@ from app.config import settings
 from app.services.switchbot import fetch_switchbot_status
 from app.services.meteosuisse import (
     fetch_meteosuisse_data, get_current_conditions,
-    get_daily_forecast, get_sun_times, get_24h_series,
+    get_daily_forecast, get_sun_times, get_next_24h_series,
 )
 from app.services.searchch import fetch_stationboard
 from app.services.wetteralarm import fetch_alerts, format_alerts_for_prompt
@@ -89,10 +89,10 @@ async def main():
         # Derive display data (same as routes.py)
         sun_times = get_sun_times()
         series = {
-            "temp":   get_24h_series(meteo_data, "tre200h0") if meteo_data else [None] * 24,
-            "precip": get_24h_series(meteo_data, "rre150h0") if meteo_data else [None] * 24,
-            "sun":    get_24h_series(meteo_data, "sre000h0") if meteo_data else [None] * 24,
-            "wind":   get_24h_series(meteo_data, "fu3010h0") if meteo_data else [None] * 24,
+            "temp":   get_next_24h_series(meteo_data, "tre200h0") if meteo_data else [None] * 24,
+            "precip": get_next_24h_series(meteo_data, "rre150h0") if meteo_data else [None] * 24,
+            "sun":    get_next_24h_series(meteo_data, "sre000h0") if meteo_data else [None] * 24,
+            "wind":   get_next_24h_series(meteo_data, "fu3010h0") if meteo_data else [None] * 24,
         }
 
         data_bundle = {
