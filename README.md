@@ -8,16 +8,16 @@ A custom BYOS (Bring Your Own Server) backend for a [TRMNL](https://usetrmnl.com
 
 ## What it shows
 
-| Section                  | Content                                                                |
-| ------------------------ | ---------------------------------------------------------------------- |
-| Temperature row          | Indoor (SwitchBot), balcony (SwitchBot), Zürich 8047 (MeteoSwiss)      |
-| 3-day forecast           | Min/max °C, weather icon, sunrise/sunset, daily precipitation          |
-| Chart 1                  | 24h temperature curve + precipitation bars, current-hour marker        |
-| Chart 2                  | 24h sunshine bars + wind speed line, sunrise/sunset markers            |
-| Transit — Albisrieden    | 5 departures: Tram 3, Bus 80 (see [Transit logic](#transit-logic))     |
-| Transit — Fellenbergstr. | 2 departures: Bus 67                                                   |
-| Riepilogo Intelligente   | Gemini 2.5 Flash Italian summary: weather advice, alerts, disruptions  |
-| Clock                    | HH:MM (large), Italian date, battery %, last-refresh timestamp         |
+| Section                  | Content                                                               |
+| ------------------------ | --------------------------------------------------------------------- |
+| Top Row                  | Date & Battery, Balcone temp, Zürich 8047 temp, Casa temp             |
+| 3-day forecast           | Min/max °C, weather icon, sunrise/sunset, daily precipitation         |
+| Chart 1                  | 24h temperature curve + precipitation bars, current-hour marker       |
+| Chart 2                  | 24h sunshine bars + wind speed line                                   |
+| Transit — Albisrieden    | 5 departures: Tram 3, Bus 80 (see [Transit logic](#transit-logic))    |
+| Transit — Fellenbergstr. | 2 departures: Bus 67                                                  |
+| Riepilogo Intelligente   | Gemini 2.5 Flash Italian summary: weather advice, alerts, disruptions |
+| Metadata Footer          | Last-refresh timestamps for SwitchBot, Transit, Meteo, and Gemini     |
 
 ---
 
@@ -210,12 +210,12 @@ All API calls are paused between 01:00 and 04:55 (night quiet hours), reducing d
 
 The display always shows **5 departures** for Albisrieden and **2** for Fellenbergstrasse. What fills those slots depends on the time of day:
 
-| Time window | Albisrieden (5 slots) | Fellenbergstrasse (2 slots) |
-|---|---|---|
-| Normal hours | 2× Tram 3 Klusplatz, 1× Bus 80 Triemli, 2× Bus 80 Oerlikon | 1× Bus 67 Wiedikon, 1× Bus 67 Dunkelhölzli |
-| Weekday 00:40–01:00 | Same (shows next-morning departures) | Same |
-| Weekend 00:40–01:00 | Gradual transition: tonight's connections + Nachtbus N3/N8 | N3 + N8 |
-| 01:00–05:00 | No API calls (device sleeping) | No API calls |
+| Time window         | Albisrieden (5 slots)                                      | Fellenbergstrasse (2 slots)                |
+| ------------------- | ---------------------------------------------------------- | ------------------------------------------ |
+| Normal hours        | 2× Tram 3 Klusplatz, 1× Bus 80 Triemli, 2× Bus 80 Oerlikon | 1× Bus 67 Wiedikon, 1× Bus 67 Dunkelhölzli |
+| Weekday 00:40–01:00 | Same (shows next-morning departures)                       | Same                                       |
+| Weekend 00:40–01:00 | Gradual transition: tonight's connections + Nachtbus N3/N8 | N3 + N8                                    |
+| 01:00–05:00         | No API calls (device sleeping)                             | No API calls                               |
 
 **Weekend late-night transition**: as regular trams/buses stop running, their slots return next-morning departures (05:00+). These are replaced one-by-one with Nachtbus N3/N8 departures. For example at 00:45 on Saturday: if only 1 tram is still running tonight, the remaining 4 slots fill with night buses.
 
@@ -273,20 +273,6 @@ cloudflared tunnel --url http://localhost:8000
 ```
 
 Update `BASE_URL` in `.env` to the tunnel URL so the device can reach `image_url`.
-
----
-
-## Deployment
-
-The server must be always-on — APScheduler runs background jobs continuously. Serverless / Lambda won't work.
-
-| Platform                                           | Cost             | Notes                                        |
-| -------------------------------------------------- | ---------------- | -------------------------------------------- |
-| [Fly.io](https://fly.io)                           | Free (256 MB VM) | `flyctl launch && flyctl deploy`             |
-| [Hetzner Cloud](https://hetzner.com)               | ~€4/mo           | CX11 in Zürich — lowest latency to search.ch |
-| [AWS Lightsail](https://aws.amazon.com/lightsail/) | $3.50/mo         | 3-month free trial                           |
-
-Set secrets via your platform's secret manager (e.g. `flyctl secrets set KEY=value`) rather than committing `.env`.
 
 ---
 
