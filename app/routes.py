@@ -3,8 +3,11 @@ from starlette.responses import JSONResponse
 import time
 import os
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from .config import settings
+
+_ZURICH_TZ = ZoneInfo("Europe/Zurich")
 from .cache import global_cache
 from .services.searchch import fetch_stationboard
 from .services.meteosuisse import get_current_conditions, get_daily_forecast, get_sun_times, get_next_24h_series
@@ -135,12 +138,20 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
     # Ensure BASE_URL doesn't have double slash
     base_url = settings.BASE_URL.rstrip('/')
     image_url = f"{base_url}/{settings.IMAGE_DIR}/screen.png?v={timestamp}"
-    
+
+    # Night mode: between 1 AM and 5 AM, sleep until 5 AM to save battery
+    now_zh = datetime.now(_ZURICH_TZ)
+    if 1 <= now_zh.hour < 5:
+        wake_at = now_zh.replace(hour=5, minute=0, second=0, microsecond=0)
+        refresh_rate = int((wake_at - now_zh).total_seconds())
+    else:
+        refresh_rate = settings.TRMNL_REFRESH_RATE
+
     return {
         "status": 0,
         "image_url": image_url,
         "filename": filename,
-        "refresh_rate": settings.TRMNL_REFRESH_RATE,
+        "refresh_rate": refresh_rate,
         "update_firmware": False,
         "firmware_url": None,
         "reset_firmware": False

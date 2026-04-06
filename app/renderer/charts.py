@@ -28,21 +28,19 @@ def draw_y_axis(draw: ImageDraw, x: int, y: int, height: int,
         if abs(val) < 1e-9:
             val = 0.0
         vy = y + height - int(i * height / steps)
-        tick_x0, tick_x1 = (x - 3, x) if not right else (x, x + 3)
-        draw.line([tick_x0, vy, tick_x1, vy], fill=0)
         label = f"{val:.{precision}f}"
         if not right:
             text_w = int(draw.textlength(label, font=font_tiny))
-            lx = x - 4 - text_w  # right-align against the tick
+            lx = x - 3 - text_w  # right-align against the tick
         else:
-            lx = x + 8
-        draw.text((lx, vy - 5), label, font=font_tiny, fill=0)
+            lx = x + 6
+        draw.text((lx, vy - 8), label, font=font_tiny, fill=0)
     # Unit label — right-aligned on left axis, left-aligned on right axis
     if not right:
         unit_w = int(draw.textlength(unit, font=font_tiny))
-        ux = x - 4 - unit_w
+        ux = x - 2 - unit_w
     else:
-        ux = x + 8
+        ux = x + 6
     draw.text((ux, y - 20), unit, font=font_tiny, fill=0)
 
 
@@ -51,7 +49,7 @@ def draw_dashed_vline(draw: ImageDraw, x: int, y: int, height: int, dash: int = 
     for dy in range(0, height, dash * 2):
         y0 = y + dy
         y1 = min(y + dy + dash, y + height)
-        draw.line([x, y0, x, y1], fill=0, width=1)
+        draw.line([x, y0, x, y1], fill=0, width=2)
 
 
 def draw_h_grid(draw: ImageDraw, x: int, y: int, width: int, height: int, steps: int = 4):
@@ -169,7 +167,7 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     draw_bar_chart(draw, cx, c1y, chart_w, chart_h, prec_data, max_v=p_max, fill=True)
     draw_line_chart(draw, cx, c1y, chart_w, chart_h, temp_data, min_v=t_min, max_v=t_max, color=0)
 
-    draw_y_axis(draw, cx-5, c1y-2, chart_h, t_min, t_max, "°C", right=False)
+    draw_y_axis(draw, cx, c1y, chart_h, t_min, t_max, "°C", right=False)
     # Use 1 decimal if p_max is small to avoid rounded 1,1,0,0 labels
     prec_precision = 1 if p_max <= 10.0 else 0
     draw_y_axis(draw, cx + chart_w, c1y, chart_h, 0, p_max, "mm", right=True, precision=prec_precision)
@@ -177,7 +175,7 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     # ORA marker at index 1 (1 hour in, current time)
     ora_x = cx + (1 * chart_w // 24)
     draw_dashed_vline(draw, ora_x, c1y, chart_h)
-    draw.text((ora_x + 2, c1y + 2), "ORA", font=font_tiny, fill=0)
+    draw.text((ora_x -11, c1y-15), "ORA", font=font_tiny, fill=0)
 
     # ── Chart 2: Sole + Vento ─────────────────────────────────────────────────
     c2y = c1y + chart_h + 46

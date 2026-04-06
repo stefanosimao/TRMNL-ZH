@@ -147,14 +147,14 @@ def compose_screen(data: dict) -> Image.Image:
     summary_bottom = 457
     draw.rectangle([rx, summary_y, 793, summary_bottom], outline=0, width=1)
 
-    draw.rectangle([rx, summary_y, 793, summary_y + 18], fill=0)
-    draw.text((rx + 4, summary_y + 2), "RIEPILOGO INTELLIGENTE", font=font_tiny, fill=255)
+    draw.rectangle([rx, summary_y, 793, summary_y + 19], fill=0)
+    draw.text((rx + 4, summary_y - 2), "RIEPILOGO INTELLIGENTE", font=font_reg, fill=255)
     draw.text((rx + 4, summary_y + 22),
-              f"aggiornato {ts.get('summary', '--:--')}", font=font_tiny, fill=0)
+              f"AGGIORNATO {ts.get('summary', '--:--')}", font=font_tiny, fill=0)
 
     # Word-wrap summary text
     summary_text = data.get("summary", "Caricamento riepilogo intelligente...")
-    max_px = 793 - rx - 8
+    max_px = 793 - rx - 77
     lines, current_line = [], ""
     for word in summary_text.split():
         test = (current_line + " " + word).strip()
@@ -172,8 +172,8 @@ def compose_screen(data: dict) -> Image.Image:
     for line in lines:
         if text_y + 13 > summary_bottom - 4:
             break
-        draw.text((rx + 4, text_y), line, font=font_tiny, fill=0)
-        text_y += 13
+        draw.text((rx + 4, text_y), line, font=font_reg, fill=0)
+        text_y += 16
 
     # ── Timestamps footer (below summary) ────────────────────────────────────
     ts_line = (f"SB {ts.get('switchbot', '--')}  "

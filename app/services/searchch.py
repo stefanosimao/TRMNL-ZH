@@ -77,10 +77,11 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
                 continue
 
             delay = 0
+            cancelled = False
             scheduled_time = dep_time
             raw_delay = conn.get("dep_delay")
             if raw_delay == "X":
-                continue  # Skip cancelled departures
+                cancelled = True
             elif raw_delay:
                 try:
                     # search.ch delays can include spaces (e.g., "+ 3")
@@ -92,7 +93,7 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
 
             diff = dep_time - now
             minutes = int(diff.total_seconds() / 60)  # floor, never rounds up
-            if minutes < 2:
+            if not cancelled and minutes < 2:
                 continue
 
             results.append({
@@ -100,6 +101,7 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
                 "destination":    terminal.replace("Zürich, ", ""),
                 "minutes":        minutes,
                 "delay":          delay,
+                "cancelled":      cancelled,
                 "time":           dep_time.strftime("%H:%M"),
                 "scheduled_time": scheduled_time.strftime("%H:%M"),
             })
