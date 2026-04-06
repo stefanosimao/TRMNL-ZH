@@ -21,9 +21,19 @@ def _shorten_dest(dest: str) -> str:
 
 def render_transit_section(draw: ImageDraw, x: int, y: int, station_name: str, departures: list):
     """
-    Renders transit section (street-timetable style).
-    - station_name: Heading with black background, white text.
-    - departures: Rows with line, destination, and minutes.
+    Renders a transit departure board for one station.
+
+    Layout mimics a real street timetable: black header bar with the station
+    name, followed by rows showing [line badge] [destination] [time].  Each
+    line badge is a filled black rectangle whose width adapts to the text
+    (so "80" and "N3" don't clip).
+
+    Cancelled departures (flagged by searchch.py) are silently skipped here
+    — they are surfaced in the Gemini summary instead, since showing
+    "CANCELLATA" on the timetable would waste a display slot.
+
+    Delays are shown as "(+N') HH:MM" using the scheduled time so the user
+    can see both the original and the slip.
     """
     font_bold = get_font(17, "Bold")
     font_reg  = get_font(15, "Regular")

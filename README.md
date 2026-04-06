@@ -1,6 +1,6 @@
 # TRMNL-ZH
 
-A custom BYOS (Bring Your Own Server) backend for a [TRMNL](https://usetrmnl.com) e-ink display. The server aggregates personal data from multiple sources, renders an 800×480 pixel black-and-white image, and serves it to the device every 45 seconds.
+A custom BYOS (Bring Your Own Server) backend for a [TRMNL](https://usetrmnl.com) e-ink display, tailored for Zürich Albisrieden. The server aggregates weather, transit, and sensor data from multiple sources, renders an 800×480 pixel black-and-white image, and serves it to the device every 45 seconds. All UI text is in Italian.
 
 ![Preview](generated/test_preview.png)
 
@@ -14,12 +14,10 @@ A custom BYOS (Bring Your Own Server) backend for a [TRMNL](https://usetrmnl.com
 | 3-day forecast           | Min/max °C, weather icon, sunrise/sunset, daily precipitation          |
 | Chart 1                  | 24h temperature curve + precipitation bars, current-hour marker        |
 | Chart 2                  | 24h sunshine bars + wind speed line, sunrise/sunset markers            |
-| Transit — Albisrieden    | Tram 3 → Klusplatz ×2, Bus 80 → Triemli ×1, Bus 80 → Oerlikon ×2       |
-| Transit — Fellenbergstr. | Tram 3 → Klusplatz ×2, Bus 67 → Wiedikon ×2, Bus 67 → Milchbuck ×2     |
-| Riepilogo Intelligente   | Gemini 2.5 Flash Italian summary: weather advice, alerts, transit tips |
+| Transit — Albisrieden    | 5 departures: Tram 3, Bus 80 (see [Transit logic](#transit-logic))     |
+| Transit — Fellenbergstr. | 2 departures: Bus 67                                                   |
+| Riepilogo Intelligente   | Gemini 2.5 Flash Italian summary: weather advice, alerts, disruptions  |
 | Clock                    | HH:MM (large), Italian date, battery %, last-refresh timestamp         |
-
-All UI text is in Italian.
 
 ---
 
@@ -37,15 +35,24 @@ FastAPI server
     │       SwitchBot temps    ← background job every 5 min
     │       MeteoSwiss data    ← background job every 30 min
     │       Wetter-Alarm       ← background job every 30 min
+    │       Transit snapshot   ← on each display request (also cached for Gemini)
     │       Gemini summary     ← background job every 60 min
-    │                            (also triggered on new alerts)
+    │                            (also triggered on alert changes)
     ├── render 800×480 1-bit PNG with Pillow (~300ms)
-    └── return { "image_url": "...", "refresh_rate": 45, ... }
+    └── return { "image_url": "...", "refresh_rate": N, ... }
 
 TRMNL device downloads image_url and displays it
 ```
 
 The `/api/display` endpoint responds in ~2 seconds — invisible within a 45-second cycle.
+
+### Night mode (01:00–05:00)
+
+Between 01:00 and 05:00 Zurich time, the server enters quiet mode:
+
+- **Device**: receives `refresh_rate` = seconds until 05:00, so it sleeps until then (saves battery).
+- **Server**: all scheduled API calls are skipped (`_is_night_quiet` guard).
+- **Pre-warm**: a cron job at 04:55 refreshes all caches in parallel so data is fresh when the device wakes at 05:00.
 
 ---
 
@@ -125,7 +132,7 @@ source venv/bin/activate
 python run.py
 ```
 
-The server starts on `http://0.0.0.0:8000`. On startup it immediately runs all background jobs — SwitchBot fetch, MeteoSwiss download, Wetter-Alarm check, Gemini summary — before accepting requests.
+The server starts on `http://0.0.0.0:8000`. On startup it immediately runs all background jobs — SwitchBot, MeteoSwiss, transit snapshot, Wetter-Alarm, Gemini summary — before accepting requests.
 
 Auto-reload is enabled in development. For production use `uvicorn app:app --host 0.0.0.0 --port 8000` without `--reload`.
 
@@ -173,7 +180,7 @@ SwitchBot credentials must be set in `.env` for the live render. Gemini summary 
 }
 ```
 
-`refresh_rate` is in seconds. The default of 45 matches `TRMNL_REFRESH_RATE` in `.env`.
+`refresh_rate` is in seconds. During the day it matches `TRMNL_REFRESH_RATE` (default 45). Between 01:00–05:00 it is dynamically set to the number of seconds until 05:00, putting the device to sleep for the night.
 
 ---
 
@@ -185,33 +192,34 @@ SwitchBot credentials must be set in `.env` for the live render. Gemini summary 
 | [SwitchBot API v1.1](https://github.com/OpenWonderLabs/SwitchBotAPI)                                 | Temperature, humidity, battery for 2 sensors | Every 5 min                    | HMAC-SHA256    |
 | [MeteoSwiss Open Data E4](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data) | Hourly + daily forecast for PLZ 8047         | Every 30 min                   | None           |
 | [Wetter-Alarm](https://wetteralarm.ch) — POI 142941                                                  | Active weather alerts for Albisrieden        | Every 30 min                   | None           |
-| [Gemini 2.5 Flash](https://ai.google.dev)                                                            | Italian summary paragraph                    | Every 60 min (or on new alert) | Google API key |
+| [Gemini 2.5 Flash](https://ai.google.dev)                                                            | Italian summary: weather advice, disruptions | Every 60 min (or on new alert) | Google API key |
 
 ### Rate limits and daily usage
 
-| Source                 | Daily limit    | Our usage                                       |
-| ---------------------- | -------------- | ----------------------------------------------- |
-| search.ch stationboard | 10,080         | ~3,840 (2 stations × 1,920 requests/day at 45s) |
-| SwitchBot              | 10,000         | ~576 (2 sensors × 288 requests/day)             |
-| MeteoSwiss             | None specified | 528 downloads/day (11 CSV files × 48 fetches)   |
-| Wetter-Alarm           | None specified | 48 requests/day                                 |
-| Gemini Flash           | Quota-based    | ~24–48 calls/day                                |
+All API calls are paused between 01:00 and 04:55 (night quiet hours), reducing daily usage by ~17%.
 
-### Transit lines
+| Source                 | Daily limit    | Our usage                                              |
+| ---------------------- | -------------- | ------------------------------------------------------ |
+| search.ch stationboard | 10,080         | ~3,200 (2 stations × ~1,600 requests/day, minus night) |
+| SwitchBot              | 10,000         | ~480 (2 sensors × ~240 requests/day, minus night)      |
+| MeteoSwiss             | None specified | ~440 downloads/day (11 CSV files × ~40 fetches)        |
+| Wetter-Alarm           | None specified | ~40 requests/day                                       |
+| Gemini Flash           | Quota-based    | ~20–40 calls/day                                       |
 
-**Zürich, Albisrieden** — next departures shown:
+### Transit logic
 
-- Tram 3 → Klusplatz (next 2)
-- Bus 80 → Triemli (next 1)
-- Bus 80 → Oerlikon (next 2)
+The display always shows **5 departures** for Albisrieden and **2** for Fellenbergstrasse. What fills those slots depends on the time of day:
 
-**Zürich, Fellenbergstrasse** — next departures shown:
+| Time window | Albisrieden (5 slots) | Fellenbergstrasse (2 slots) |
+|---|---|---|
+| Normal hours | 2× Tram 3 Klusplatz, 1× Bus 80 Triemli, 2× Bus 80 Oerlikon | 1× Bus 67 Wiedikon, 1× Bus 67 Dunkelhölzli |
+| Weekday 00:40–01:00 | Same (shows next-morning departures) | Same |
+| Weekend 00:40–01:00 | Gradual transition: tonight's connections + Nachtbus N3/N8 | N3 + N8 |
+| 01:00–05:00 | No API calls (device sleeping) | No API calls |
 
-- Tram 3 → Klusplatz (next 2)
-- Bus 67 → Wiedikon (next 2)
-- Bus 67 → Milchbuck (next 2)
+**Weekend late-night transition**: as regular trams/buses stop running, their slots return next-morning departures (05:00+). These are replaced one-by-one with Nachtbus N3/N8 departures. For example at 00:45 on Saturday: if only 1 tram is still running tonight, the remaining 4 slots fill with night buses.
 
-Delays are shown inline (e.g. `12+2 min`). The minutes value already accounts for the delay — it reflects when the tram actually leaves.
+Delays are shown as `(+N') HH:MM` using the scheduled time. Cancelled departures (`dep_delay: "X"` from search.ch) are hidden from the timetable but reported to Gemini as disruptions.
 
 ---
 
@@ -299,4 +307,4 @@ Each data source degrades independently — the display is never blank.
 
 ## Battery
 
-The TRMNL device sends a `BATTERY_VOLTAGE` header on every request. The server converts voltage to percentage (linear: 3.0 V = 0%, 4.2 V = 100%) and displays it in the clock section. At a 45-second refresh rate, a 2500 mAh battery lasts approximately 6 days per charge.
+The TRMNL device sends a `BATTERY_VOLTAGE` header on every request. The server converts voltage to percentage (linear: 3.0 V = 0%, 4.2 V = 100%) and displays it in the date tile. Night mode (01:00–05:00) extends battery life by sleeping the device for ~4 hours instead of polling every 45 seconds.

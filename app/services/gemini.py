@@ -1,6 +1,21 @@
 """
-Gemini Flash 2.5 integration.
-Generates a short Italian weather + transit summary paragraph.
+Gemini 2.5 Flash integration for the "Riepilogo Intelligente" panel.
+
+Builds a structured Italian prompt from cached weather, forecast, alert,
+and transit data, then calls Gemini to produce a single concise paragraph
+(max 395 characters) with practical advice: what to wear, whether to
+carry an umbrella, and any active weather alerts or transit disruptions.
+
+The prompt is time-aware:
+  - Daytime (05:00–21:59): focuses on the next 30 min / coming hours.
+  - Night   (22:00–04:59): focuses on tomorrow morning's conditions.
+
+Hourly temperature, precipitation, and wind data are included so the
+model bases its advice on actual numbers rather than hallucinating from
+daily min/max or alert titles (e.g. ground-frost alerts ≠ air temp 0°C).
+
+Transit disruptions are limited to lines 3 and 80 (delays and
+cancellations only — departure times are already visible on the display).
 """
 import asyncio
 from google import genai
@@ -13,10 +28,16 @@ _ZURICH_TZ = ZoneInfo("Europe/Zurich")
 
 def _get_relevant_hours(weather: dict, is_night: bool) -> dict:
     """
-    Extracts hourly temp, precip, and wind for the relevant window.
-    Daytime: next 6 hours. Night: tomorrow 06:00–12:00.
+    Extracts hourly temp, precip, and wind for the time window Gemini
+    should reason about.
+
+    Daytime: the next 6 hours from now.
+    Night:   tomorrow morning 06:00–12:00 (the period the user will
+             wake up into).
+
     Returns {"temp": [...], "precip": [...], "wind": [...]} where each
-    item is (HH:MM, value).
+    value is a list of (HH:MM, float) tuples.  MeteoSuisse stores times
+    in UTC; they are converted to Europe/Zurich before windowing.
     """
     meteo_data = weather.get("meteo_full")
     if not meteo_data or "hourly" not in meteo_data:
@@ -88,12 +109,12 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
 
     lines = [
         "Sei un assistente meteo per Zurigo, zona Albisrieden.",
-        "Scrivi UN paragrafo conciso in italiano (MAX 470 CARATTERI).",
+        "Scrivi UN paragrafo conciso in italiano (MAX 395CARATTERI).",
         "",
         f"CONTESTO TEMPORALE: {time_context}",
         "",
         "REGOLE:",
-        "- Sii pratico e diretto (puoi anche usare umorismo però, non sempre): dì se serve giacca, ombrello, ecc. puoi anche menzionare se è una buona idea uscire o restare in casa (se brutto tempo e con meno di 2°C).",
+        "- Sii pratico e diretto (puoi anche usare umorismo se vuoi): dì se serve giacca, ombrello, ecc. puoi anche menzionare se è una buona idea uscire o restare in casa (se brutto tempo e con meno di 2°C).",
         "- Sotto i 10°C, menziona la necessità di una giacca pesante. Sotto i 5°C, consiglia guanti e berretto. Sopra i 25°C, menziona che fa caldo.",
         "- Se ci sono allerte meteo attive, menzionale.",
         "- IMPORTANTE: le allerte per 'gelo al suolo' / 'Bodenfrost' riguardano la temperatura a livello del terreno, NON la temperatura dell'aria. Non dire che farà 0°C se i dati orari mostrano temperature più alte.",
@@ -163,13 +184,17 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
             lines.append(f"  {d}")
 
     lines.append("")
-    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 470 caratteri.")
+    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 395 caratteri.")
     return "\n".join(lines)
 
 
 async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
     """
-    Calls the Gemini 2.5 Flash API to generate an Italian weather and transit summary.
+    Calls Gemini 2.5 Flash to produce the Italian summary paragraph.
+
+    The synchronous google-genai client is wrapped in asyncio.to_thread
+    so it doesn't block the event loop.  The result is hard-truncated at
+    395 characters as a safety net (the prompt already asks for this limit).
     """
     if not settings.GEMINI_API_KEY:
         return "Gemini API key non configurata."
@@ -185,8 +210,8 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
         )
         text = response.text.strip()
         # Safety truncate if model ignores prompt instruction
-        if len(text) > 470:
-            text = text[:467] + "..."
+        if len(text) > 395:
+            text = text[:394] + "..."
         return text
     except Exception as e:
         print(f"Gemini error: {e}")

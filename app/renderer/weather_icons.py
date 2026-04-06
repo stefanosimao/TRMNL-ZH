@@ -4,8 +4,20 @@ from PIL import ImageDraw
 
 def _draw_cloud(draw: ImageDraw, cx: int, cy: int, size: str = "large"):
     """
-    Draws a cloud using overlapping filled white circles with black outlines.
-    size: "large" (default weather cloud) or "small" (for partly-sunny background).
+    Draws a cloud centred at (cx, cy) on a 1-bit canvas.
+
+    Technique: three overlapping circles (bumps) sit on a rectangular base.
+    Because Pillow's 1-bit mode has no transparency, the drawing is done in
+    two passes — first fill everything white (erasing whatever is behind the
+    cloud), then draw only the outlines that should be visible:
+      1. White-fill base rectangle + bump circles.
+      2. Draw base sides + bottom line.
+      3. Draw top arcs of each bump (bottom arcs are inside the body).
+      4. White-fill the interior again to erase any arc-overlap artifacts.
+      5. Redraw the outlines from steps 2–3.
+
+    size: "large" for standalone cloud icons, "small" for the partly-sunny
+    combo where the cloud overlaps a sun.
     """
     if size == "small":
         # Smaller cloud, offset bottom-left for partly-sunny combo

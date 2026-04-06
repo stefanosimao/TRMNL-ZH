@@ -139,7 +139,10 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
     base_url = settings.BASE_URL.rstrip('/')
     image_url = f"{base_url}/{settings.IMAGE_DIR}/screen.png?v={timestamp}"
 
-    # Night mode: between 1 AM and 5 AM, sleep until 5 AM to save battery
+    # Night mode (01:00–04:59): tell the device to sleep until 05:00.
+    # The server also stops API calls during this window (_is_night_quiet).
+    # At 04:55 the pre-warm cron job refreshes all caches so data is ready
+    # when the device wakes up and makes its first request at ~05:00.
     now_zh = datetime.now(_ZURICH_TZ)
     if 1 <= now_zh.hour < 5:
         wake_at = now_zh.replace(hour=5, minute=0, second=0, microsecond=0)

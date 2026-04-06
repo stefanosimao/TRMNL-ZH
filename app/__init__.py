@@ -16,12 +16,18 @@ from .services.gemini import generate_summary
 
 _ZURICH_TZ = ZoneInfo("Europe/Zurich")
 
-# Shared scheduler
 scheduler = AsyncIOScheduler()
 
 
 def _is_night_quiet() -> bool:
-    """Returns True between 01:00 and 04:54 Zurich time (quiet hours)."""
+    """
+    Returns True during night quiet hours: 01:00–04:54 Zurich time.
+
+    During this window all scheduled jobs are skipped to avoid unnecessary
+    API calls while the device is sleeping. The window ends at 04:55 (not
+    05:00) because _prewarm_all_caches runs at 04:55 via a separate cron
+    trigger and must NOT be blocked by this guard.
+    """
     now = datetime.now(_ZURICH_TZ)
     return 1 <= now.hour < 5 and not (now.hour == 4 and now.minute >= 55)
 
@@ -86,7 +92,12 @@ async def update_alerts_and_maybe_summary(client: httpx.AsyncClient):
 
 
 async def _run_gemini_summary(client: httpx.AsyncClient):
-    """Calls Gemini and stores the result in cache. Used by both the scheduler and event triggers."""
+    """
+    Assembles weather, forecast, alert, and transit data from the cache,
+    then calls Gemini to produce a concise Italian summary paragraph.
+    Used by the hourly scheduler job, the alert-change trigger, and the
+    04:55 pre-warm routine.
+    """
     try:
         switchbot  = global_cache.get("switchbot") or {}
         meteo_data = global_cache.get("meteo") or {}
@@ -120,7 +131,16 @@ async def update_gemini_summary(client: httpx.AsyncClient):
 
 
 async def _prewarm_all_caches(client: httpx.AsyncClient):
-    """Job: runs at 04:55 to refresh all caches before the device wakes at 05:00."""
+    """
+    Cron job: runs once at 04:55 Zurich time.
+
+    Refreshes all data sources in parallel (SwitchBot, MeteoSuisse, transit,
+    Wetter-Alarm) then regenerates the Gemini summary, so every cache is
+    fresh when the TRMNL device wakes from its night sleep at 05:00.
+
+    This bypasses _is_night_quiet() by calling the underlying fetchers
+    directly instead of the guarded update_* wrappers.
+    """
     import asyncio
     print("Pre-warming all caches for 05:00 wake-up...")
 

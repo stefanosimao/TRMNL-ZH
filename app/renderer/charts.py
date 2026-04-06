@@ -128,11 +128,22 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
                           sun_data: list, wind_data: list,
                           start_hour: int = 0):
     """
-    Renders both 24h charts with specific scaling rules:
-    - Temp: min-5 to max+5
-    - Precipitation: min 0-10, or max+5 if higher
-    - Sunshine: fixed 0-60
-    - Wind: minimum 0-20, dynamic if higher
+    Renders two dual-axis 24-hour charts stacked vertically.
+
+    Chart 1 — Temperature + Precipitation:
+      Left axis:  temperature line (°C), auto-scaled with ±5° padding.
+      Right axis: precipitation bars (mm/h), floor 0–10, grows if data exceeds 5 mm.
+
+    Chart 2 — Sunshine + Wind:
+      Left axis:  sunshine bars (min/h), fixed 0–60.
+      Right axis: wind speed dashed line (km/h), floor 0–20, grows dynamically.
+
+    Both charts share a 24-hour X axis with 3-hour tick labels starting at
+    start_hour (typically current_hour − 1).  A dashed "ORA" (now) marker
+    is drawn at index 1 (1 hour into the series = current hour).
+
+    The data arrays are 24 elements each, produced by get_next_24h_series()
+    which returns 1 past hour + 23 forecast hours.
     """
     font_tiny      = get_font(10, "Regular")
     font_sun_label = get_font(12, "Regular")
@@ -172,7 +183,9 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     prec_precision = 1 if p_max <= 10.0 else 0
     draw_y_axis(draw, cx + chart_w, c1y, chart_h, 0, p_max, "mm", right=True, precision=prec_precision)
 
-    # ORA marker at index 1 (1 hour in, current time)
+    # "ORA" marker — vertical dashed line at index 1 in the 24-element array.
+    # The series starts 1 hour before now (index 0 = past hour), so index 1
+    # aligns with the current hour.
     ora_x = cx + (1 * chart_w // 24)
     draw_dashed_vline(draw, ora_x, c1y, chart_h)
     draw.text((ora_x -11, c1y-15), "ORA", font=font_tiny, fill=0)
