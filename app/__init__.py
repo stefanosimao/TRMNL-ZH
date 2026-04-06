@@ -61,13 +61,16 @@ async def _run_gemini_summary(client: httpx.AsyncClient):
         alerts     = global_cache.get("alerts") or []
         transit    = global_cache.get("transit_snapshot") or {}
 
-        from .services.meteosuisse import get_current_conditions
+        from .services.meteosuisse import get_current_conditions, get_daily_forecast, get_sun_times
         current_meteo = get_current_conditions(meteo_data) if meteo_data else {}
 
         weather = {
-            "indoor":  switchbot.get("indoor",  {}),
-            "outdoor": switchbot.get("outdoor", {}),
-            "meteo":   current_meteo,
+            "indoor":           switchbot.get("indoor",  {}),
+            "outdoor":          switchbot.get("outdoor", {}),
+            "meteo":            current_meteo,
+            "forecast_today":   get_daily_forecast(meteo_data, 0) if meteo_data else None,
+            "forecast_tomorrow": get_daily_forecast(meteo_data, 1) if meteo_data else None,
+            "sun_times":        get_sun_times(),
         }
         alert_strings = format_alerts_for_prompt(alerts)
         summary = await generate_summary(weather, transit, alert_strings)

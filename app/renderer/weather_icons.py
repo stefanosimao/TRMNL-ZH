@@ -101,11 +101,12 @@ def draw_weather_icon(draw: ImageDraw, x: int, y: int, pictogram_id):
         draw.line(bolt, fill=0, width=2)
 
     elif 15 <= p <= 21:
-        # ── Snow: cloud + 3 snowflake dots ──────────────────────────────────
+        # ── Snow: cloud + 3 snowflake crosses ───────────────────────────────
         _draw_cloud(draw, cx, cy - 4, 16, 9)
         for dx in (-6, 0, 6):
-            dot_x, dot_y = cx + dx, cy + 11
-            draw.ellipse([dot_x - 2, dot_y - 2, dot_x + 2, dot_y + 2], fill=0)
+            sx, sy = cx + dx, cy + 11
+            draw.line([sx - 3, sy, sx + 3, sy], fill=0, width=1)
+            draw.line([sx, sy - 3, sx, sy + 3], fill=0, width=1)
 
     elif 22 <= p <= 25:
         # ── Sleet: cloud + alternating drop and dot ──────────────────────────
@@ -121,14 +122,18 @@ def draw_weather_icon(draw: ImageDraw, x: int, y: int, pictogram_id):
 
 
 def _draw_cloud(draw: ImageDraw, cx: int, cy: int, w: int, h: int):
-    """Draws a simple cloud shape centred at (cx, cy) with given half-width/height."""
-    # Main ellipse
+    """Draws a cloud shape centred at (cx, cy) with given half-width/height.
+    Bumps are drawn as top-arcs only to avoid internal line artifacts."""
+    # Bumps: top arc only (180→360 = left→top→right in PIL clockwise coords)
+    draw.arc([cx - w + 2, cy - h - 4, cx - 2, cy + 2], start=180, end=360, fill=0, width=1)
+    draw.arc([cx - 2, cy - h - 2, cx + w - 4, cy + 2], start=180, end=360, fill=0, width=1)
+    # Main body ellipse
     draw.ellipse([cx - w, cy - h, cx + w, cy + h], outline=0, width=1)
-    # Bump on top-left
-    draw.ellipse([cx - w + 2, cy - h - 4, cx - 2, cy + 2], outline=0, width=1)
-    # Bump on top-right
-    draw.ellipse([cx - 2, cy - h - 2, cx + w - 4, cy + 2], outline=0, width=1)
-    # Fill bottom to hide internal lines (white rectangle)
+    # White fill to hide internal bump lines inside the body
+    draw.rectangle([cx - w + 1, cy - h + 1, cx + w - 1, cy - 1], fill=255)
+    # Redraw top arc of body (was whited out)
+    draw.arc([cx - w, cy - h, cx + w, cy + h], start=180, end=360, fill=0, width=1)
+    # White fill bottom half interior
     draw.rectangle([cx - w + 1, cy, cx + w - 1, cy + h - 1], fill=255)
     # Redraw bottom arc
     draw.arc([cx - w, cy - h, cx + w, cy + h], start=0, end=180, fill=0, width=1)

@@ -12,6 +12,9 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
     indoor  = weather.get("indoor",  {})
     outdoor = weather.get("outdoor", {})
     meteo   = weather.get("meteo",   {})
+    fc_today    = weather.get("forecast_today") or {}
+    fc_tomorrow = weather.get("forecast_tomorrow") or {}
+    sun         = weather.get("sun_times") or {}
 
     lines = [
         "Sei un assistente meteo per Zurigo, zona Albisrieden (PLZ 8047).",
@@ -24,8 +27,29 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
         "DATI ATTUALI:",
         f"  Temperatura interna: {indoor.get('temperature', 'n/d')}°C",
         f"  Temperatura balcone: {outdoor.get('temperature', 'n/d')}°C",
-        f"  Temperatura MeteoSwiss (8047): {meteo.get('temp', 'n/d')}°C",
+        f"  Temperatura MeteoSwiss ora (8047): {meteo.get('temp', 'n/d')}°C",
     ]
+
+    if fc_today:
+        min_t = fc_today.get('min_temp')
+        max_t = fc_today.get('max_temp')
+        prec  = fc_today.get('precip')
+        min_s = f"{min_t:.0f}" if isinstance(min_t, float) else "n/d"
+        max_s = f"{max_t:.0f}" if isinstance(max_t, float) else "n/d"
+        prec_s = f"{prec:.1f}" if isinstance(prec, float) else "n/d"
+        lines.append(f"  Previsione OGGI: {min_s}–{max_s}°C, precip. {prec_s} mm")
+
+    if fc_tomorrow:
+        min_t = fc_tomorrow.get('min_temp')
+        max_t = fc_tomorrow.get('max_temp')
+        prec  = fc_tomorrow.get('precip')
+        min_s = f"{min_t:.0f}" if isinstance(min_t, float) else "n/d"
+        max_s = f"{max_t:.0f}" if isinstance(max_t, float) else "n/d"
+        prec_s = f"{prec:.1f}" if isinstance(prec, float) else "n/d"
+        lines.append(f"  Previsione DOMANI: {min_s}–{max_s}°C, precip. {prec_s} mm")
+
+    if sun.get("sunrise"):
+        lines.append(f"  Alba {sun['sunrise']} · Tramonto {sun.get('sunset', 'n/d')}")
 
     if alerts:
         lines.append("")

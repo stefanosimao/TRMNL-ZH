@@ -42,14 +42,15 @@ def generate_preview():
         },
         "transit": {
             "station_1": [
-                {"line": "3",  "destination": "Klusplatz", "minutes": 4,  "delay": 0},
-                {"line": "3",  "destination": "Klusplatz", "minutes": 12, "delay": 2},
-                {"line": "80", "destination": "Oerlikon",  "minutes": 7,  "delay": 0},
+                {"line": "3",  "destination": "Klusplatz", "minutes": 4,  "delay": 0, "time": "10:12", "scheduled_time": "10:12"},
+                {"line": "3",  "destination": "Klusplatz", "minutes": 12, "delay": 2, "time": "10:22", "scheduled_time": "10:20"},
+                {"line": "80", "destination": "Triemli",   "minutes": 7,  "delay": 0, "time": "10:15", "scheduled_time": "10:15"},
+                {"line": "80", "destination": "Oerlikon",  "minutes": 3,  "delay": 0, "time": "10:11", "scheduled_time": "10:11"},
+                {"line": "80", "destination": "Oerlikon",  "minutes": 18, "delay": 0, "time": "10:26", "scheduled_time": "10:26"},
             ],
             "station_2": [
-                {"line": "3",  "destination": "Klusplatz", "minutes": 2,  "delay": 0},
-                {"line": "67", "destination": "Wiedikon",  "minutes": 9,  "delay": 0},
-                {"line": "67", "destination": "Milchbuck", "minutes": 15, "delay": 1},
+                {"line": "67", "destination": "Wiedikon",      "minutes": 9,  "delay": 0, "time": "10:17", "scheduled_time": "10:17"},
+                {"line": "67", "destination": "Dunkelhölzli",  "minutes": 14, "delay": 1, "time": "10:23", "scheduled_time": "10:22"},
             ],
         },
         "summary": (

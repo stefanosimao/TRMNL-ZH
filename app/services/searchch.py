@@ -9,7 +9,7 @@ def _get_filters(now: datetime) -> dict:
     """
     Returns the transit filters for each station.
     Station 2 is configured to show only the next Bus 67 in each direction.
-    Station 1 includes the N3 Nachtbus during weekend late nights (1 AM - 4 AM).
+    Station 1 includes the N3 Nachtbus during weekend late nights (0 AM - 4 AM).
     """
     filters = {
         settings.TRANSIT_STATION_1: [
@@ -23,9 +23,9 @@ def _get_filters(now: datetime) -> dict:
         ],
     }
     
-    # Nachtbus N3 logic: Saturday morning or Sunday morning, 1 AM - 4 AM
+    # Nachtbus N3 logic: Saturday morning or Sunday morning, 0 AM - 4 AM
     # weekday(): 5 = Saturday, 6 = Sunday
-    if now.weekday() in (5, 6) and 1 <= now.hour < 4:
+    if now.weekday() in (5, 6) and 0 <= now.hour < 4:
         filters[settings.TRANSIT_STATION_1].append(
             {"line": "N3", "terminals": ["Bahnhofplatz"], "count": 1}
         )
@@ -59,7 +59,7 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
     for f in filters:
         count = 0
         for conn in connections:
-            if conn.get("line") != f["line"]:
+            if str(conn.get("line", "")) != str(f["line"]):
                 continue
 
             terminal = conn.get("terminal", {}).get("name", "")
@@ -79,9 +79,13 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
             delay = 0
             scheduled_time = dep_time
             raw_delay = conn.get("dep_delay")
-            if raw_delay:
+            if raw_delay == "X":
+                continue  # Skip cancelled departures
+            elif raw_delay:
                 try:
-                    delay = int(raw_delay)
+                    # search.ch delays can include spaces (e.g., "+ 3")
+                    clean_delay = str(raw_delay).replace(" ", "").replace("+", "")
+                    delay = int(clean_delay)
                     dep_time = dep_time + timedelta(minutes=delay)
                 except (ValueError, TypeError):
                     pass
@@ -92,7 +96,7 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
                 continue
 
             results.append({
-                "line":           conn.get("line"),
+                "line":           str(conn.get("line", "")),
                 "destination":    terminal.replace("Zürich, ", ""),
                 "minutes":        minutes,
                 "delay":          delay,

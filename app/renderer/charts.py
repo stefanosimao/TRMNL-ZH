@@ -31,10 +31,18 @@ def draw_y_axis(draw: ImageDraw, x: int, y: int, height: int,
         tick_x0, tick_x1 = (x - 3, x) if not right else (x, x + 3)
         draw.line([tick_x0, vy, tick_x1, vy], fill=0)
         label = f"{val:.{precision}f}"
-        lx = x - 30 if not right else x + 8
+        if not right:
+            text_w = int(draw.textlength(label, font=font_tiny))
+            lx = x - 4 - text_w  # right-align against the tick
+        else:
+            lx = x + 8
         draw.text((lx, vy - 5), label, font=font_tiny, fill=0)
-    # Unit label — pushed higher to avoid overlapping the top tick value
-    ux = x - 30 if not right else x + 8
+    # Unit label — right-aligned on left axis, left-aligned on right axis
+    if not right:
+        unit_w = int(draw.textlength(unit, font=font_tiny))
+        ux = x - 4 - unit_w
+    else:
+        ux = x + 8
     draw.text((ux, y - 20), unit, font=font_tiny, fill=0)
 
 
@@ -47,8 +55,8 @@ def draw_dashed_vline(draw: ImageDraw, x: int, y: int, height: int, dash: int = 
 
 
 def draw_h_grid(draw: ImageDraw, x: int, y: int, width: int, height: int, steps: int = 4):
-    """Draws dashed horizontal grid lines at each Y-axis step (skip top/bottom borders)."""
-    for i in range(1, steps):
+    """Draws dashed horizontal grid lines at each Y-axis step (skip bottom border, include top)."""
+    for i in range(1, steps + 1):
         vy = y + height - int(i * height / steps)
         for dx in range(0, width, 8):
             x0 = x + dx
@@ -58,7 +66,7 @@ def draw_h_grid(draw: ImageDraw, x: int, y: int, width: int, height: int, steps:
 
 def draw_chart_title(draw: ImageDraw, x: int, y: int, title: str):
     font_small = get_font(11, "Bold")
-    draw.text((x, y - 14), title.upper(), font=font_small, fill=0)
+    draw.text((x, y - 18), title.upper(), font=font_small, fill=0)
 
 
 def draw_line_chart(draw: ImageDraw, x: int, y: int, width: int, height: int,
@@ -120,7 +128,6 @@ def draw_bar_chart(draw: ImageDraw, x: int, y: int, width: int, height: int,
 def render_weather_charts(draw: ImageDraw, x: int, y: int,
                           temp_data: list, prec_data: list,
                           sun_data: list, wind_data: list,
-                          sunrise: str | None = None, sunset: str | None = None,
                           start_hour: int = 0):
     """
     Renders both 24h charts with specific scaling rules:
@@ -132,15 +139,15 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     font_tiny      = get_font(10, "Regular")
     font_sun_label = get_font(12, "Regular")
 
-    LEFT_PAD  = 32  # space for left Y-axis labels
-    RIGHT_PAD = 36  # space for right Y-axis labels
-    chart_w   = 542 - LEFT_PAD - RIGHT_PAD
+    LEFT_PAD  = 28  # space for left Y-axis labels
+    RIGHT_PAD = 32  # space for right Y-axis labels
+    chart_w   = (555 - x) - LEFT_PAD - RIGHT_PAD  # fills left panel from x to divider
     chart_h   = 120
     cx        = x + LEFT_PAD
 
     # ── Chart 1: Temperatura + Precipitazioni ─────────────────────────────────
-    c1y = y + 24
-    draw_chart_title(draw, cx, c1y, "Temperatura (°C) + Precipitazioni (mm/h)")
+    c1y = y + 28
+    draw_chart_title(draw, cx+135, c1y-2, "Temperatura (°C) + Precipitazioni (mm/h)")
     draw_24h_grid(draw, cx, c1y, chart_w, chart_h, start_hour=start_hour)
 
     # Temp scale
@@ -162,7 +169,7 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     draw_bar_chart(draw, cx, c1y, chart_w, chart_h, prec_data, max_v=p_max, fill=True)
     draw_line_chart(draw, cx, c1y, chart_w, chart_h, temp_data, min_v=t_min, max_v=t_max, color=0)
 
-    draw_y_axis(draw, cx, c1y, chart_h, t_min, t_max, "°C", right=False)
+    draw_y_axis(draw, cx-5, c1y-2, chart_h, t_min, t_max, "°C", right=False)
     # Use 1 decimal if p_max is small to avoid rounded 1,1,0,0 labels
     prec_precision = 1 if p_max <= 10.0 else 0
     draw_y_axis(draw, cx + chart_w, c1y, chart_h, 0, p_max, "mm", right=True, precision=prec_precision)
@@ -173,8 +180,8 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     draw.text((ora_x + 2, c1y + 2), "ORA", font=font_tiny, fill=0)
 
     # ── Chart 2: Sole + Vento ─────────────────────────────────────────────────
-    c2y = c1y + chart_h + 36
-    draw_chart_title(draw, cx, c2y, "Sole (min/h) + Vento (km/h)")
+    c2y = c1y + chart_h + 46
+    draw_chart_title(draw, cx+175, c2y-2, "Sole (min/h) + Vento (km/h)")
     draw_24h_grid(draw, cx, c2y, chart_w, chart_h, start_hour=start_hour)
 
     s_max = 60.0
@@ -190,22 +197,3 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
 
     # ORA marker at index 3 (3 hours in, current time)
     draw_dashed_vline(draw, ora_x, c2y, chart_h)
-    draw.text((ora_x + 2, c2y + 2), "ORA", font=font_tiny, fill=0)
-
-    # Sunrise / Sunset markers with HH:MM label
-    for symbol, time_str in [("↑", sunrise), ("↓", sunset)]:
-        if not time_str:
-            continue
-        try:
-            h, m = map(int, time_str.split(":"))
-            # Map absolute hour to chart x position relative to start_hour
-            hour_offset = (h - start_hour) % 24
-            mx = cx + int(hour_offset * chart_w / 24)
-            draw.line([mx, c2y + chart_h - 6, mx, c2y + chart_h], fill=0, width=1)
-            label = f"{symbol} {time_str}"
-            label_w = int(draw.textlength(label, font=font_sun_label))
-            # Place label to the right unless it would overflow, then to the left
-            lx = mx + 2 if mx + label_w + 2 < cx + chart_w else mx - label_w - 2
-            draw.text((lx, c2y + chart_h + 14), label, font=font_sun_label, fill=0)
-        except (ValueError, AttributeError):
-            pass
