@@ -2,138 +2,218 @@ import math
 from PIL import ImageDraw
 
 
+def _draw_cloud(draw: ImageDraw, cx: int, cy: int, size: str = "large"):
+    """
+    Draws a cloud using overlapping filled white circles with black outlines.
+    size: "large" (default weather cloud) or "small" (for partly-sunny background).
+    """
+    if size == "small":
+        # Smaller cloud, offset bottom-left for partly-sunny combo
+        bumps = [
+            (cx - 6, cy - 2, 7),   # left bump
+            (cx + 2, cy - 5, 8),   # center bump (taller)
+            (cx + 9, cy - 2, 6),   # right bump
+        ]
+        base = (cx - 10, cy - 1, cx + 13, cy + 6)
+    else:
+        bumps = [
+            (cx - 8, cy - 3, 8),   # left bump
+            (cx + 1, cy - 7, 9),   # center bump (taller)
+            (cx + 10, cy - 3, 7),  # right bump
+        ]
+        base = (cx - 14, cy - 2, cx + 15, cy + 7)
+
+    # Fill white first (all shapes), then draw outlines
+    # Base rectangle fill
+    draw.rectangle([base[0] + 1, base[1], base[2] - 1, base[3]], fill=255)
+    # Bump fills
+    for bx, by, r in bumps:
+        draw.ellipse([bx - r, by - r, bx + r, by + r], fill=255)
+
+    # Draw outlines: base bottom + sides
+    draw.line([base[0], base[3], base[2], base[3]], fill=0, width=1)  # bottom
+    draw.line([base[0], base[1] + 2, base[0], base[3]], fill=0, width=1)  # left side
+    draw.line([base[2], base[1] + 2, base[2], base[3]], fill=0, width=1)  # right side
+
+    # Bump outlines (top arcs only — bottom halves hidden inside cloud body)
+    for bx, by, r in bumps:
+        draw.arc([bx - r, by - r, bx + r, by + r], start=180, end=360, fill=0, width=1)
+
+    # White-fill interior to clean up any arc overlap artifacts
+    interior = (base[0] + 1, min(b[1] for b in bumps) + 2, base[2] - 1, base[3] - 1)
+    draw.rectangle(interior, fill=255)
+
+    # Redraw just the visible outlines
+    draw.line([base[0], base[3], base[2], base[3]], fill=0, width=1)
+    draw.line([base[0], base[1] + 2, base[0], base[3]], fill=0, width=1)
+    draw.line([base[2], base[1] + 2, base[2], base[3]], fill=0, width=1)
+    for bx, by, r in bumps:
+        draw.arc([bx - r, by - r, bx + r, by + r], start=180, end=360, fill=0, width=1)
+
+
+def _draw_sun(draw: ImageDraw, cx: int, cy: int, r: int = 8, ray_len: int = 5):
+    """Draws a sun: filled circle + 8 rays."""
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=255, outline=0, width=2)
+    for deg in range(0, 360, 45):
+        rad = math.radians(deg)
+        x0 = int(cx + math.cos(rad) * (r + 2))
+        y0 = int(cy + math.sin(rad) * (r + 2))
+        x1 = int(cx + math.cos(rad) * (r + 2 + ray_len))
+        y1 = int(cy + math.sin(rad) * (r + 2 + ray_len))
+        draw.line([x0, y0, x1, y1], fill=0, width=1)
+
+
+def _draw_raindrop(draw: ImageDraw, x: int, y: int, length: int = 5, width: int = 1):
+    """Draws a single raindrop (angled line)."""
+    draw.line([x, y, x - 2, y + length], fill=0, width=width)
+
+
+def _draw_snowflake(draw: ImageDraw, x: int, y: int, size: int = 3, bold: bool = False):
+    """Draws an asterisk-style snowflake."""
+    w = 2 if bold else 1
+    for deg in (0, 60, 120):
+        rad = math.radians(deg)
+        dx = int(math.cos(rad) * size)
+        dy = int(math.sin(rad) * size)
+        draw.line([x - dx, y - dy, x + dx, y + dy], fill=0, width=w)
+
+
+def _draw_lightning(draw: ImageDraw, cx: int, y_start: int):
+    """Draws a small lightning bolt."""
+    bolt = [
+        (cx + 2, y_start),
+        (cx - 1, y_start + 6),
+        (cx + 2, y_start + 6),
+        (cx - 2, y_start + 13),
+    ]
+    draw.line(bolt, fill=0, width=2)
+
+
 def draw_weather_icon(draw: ImageDraw, x: int, y: int, pictogram_id):
     """
     Draws a 40x40 1-bit weather icon for MeteoSwiss jp2000d0 pictogram codes.
 
-    Category mapping:
-      1        → Clear/Sunny
-      2, 3, 26 → Partly sunny
-      4, 5     → Cloudy/Overcast
-      6        → Fog
-      7, 11    → Light rain
-      8, 12    → Rain
-      9, 13    → Heavy rain
-      10, 14   → Thunderstorm
-      15-21    → Snow
-      22-25    → Sleet (mixed rain/snow)
-      27-40    → mapped to nearest category above
+    Category mapping (with intensity levels):
+      1              → Clear/Sunny
+      2, 3, 26       → Partly sunny
+      4, 5           → Cloudy/Overcast
+      6              → Fog
+      7, 11          → Light rain (2 thin drops)
+      8, 12          → Moderate rain (3 drops)
+      9, 13          → Heavy rain (4 thick drops)
+      10, 14         → Thunderstorm
+      15, 16, 17     → Light snow (2 small flakes)
+      18, 19         → Moderate snow (3 flakes)
+      20, 21         → Heavy snow (5 flakes, larger)
+      22, 23         → Light sleet (1 drop + 1 flake)
+      24, 25         → Heavy sleet (2 drops + 2 flakes)
+      27, 28         → Partly sunny (shower variant)
+      29, 30         → Rain showers → moderate rain
+      31, 32, 33     → Thundery showers → thunderstorm
+      34, 35, 36     → Snow showers → moderate snow
+      37, 38, 39, 40 → Sleet showers → light sleet
     """
     if pictogram_id is None:
         return
 
     p = int(pictogram_id)
 
-    # Normalise less-common codes to nearest base category
+    # Remap shower/variant codes to base categories
     if p in (27, 28):
-        p = 2   # sunny intervals
+        p = 2
     elif p in (29, 30):
-        p = 8   # rain showers
+        p = 8
     elif p in (31, 32, 33):
-        p = 10  # thundery showers
+        p = 10
     elif p in (34, 35, 36):
-        p = 20  # snow showers → snow
+        p = 18  # moderate snow (not all→heavy)
     elif p in (37, 38, 39, 40):
-        p = 23  # sleet showers → sleet
+        p = 22
 
     cx, cy = x + 20, y + 20  # icon centre
 
+    # ── Clear: sun ──────────────────────────────────────────────────────────
     if p == 1:
-        # ── Clear: circle + 8 rays ──────────────────────────────────────────
-        r = 8
-        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=0, width=2)
-        for deg in range(0, 360, 45):
-            rad = math.radians(deg)
-            x0 = int(cx + math.cos(rad) * (r + 3))
-            y0 = int(cy + math.sin(rad) * (r + 3))
-            x1 = int(cx + math.cos(rad) * (r + 7))
-            y1 = int(cy + math.sin(rad) * (r + 7))
-            draw.line([x0, y0, x1, y1], fill=0, width=1)
+        _draw_sun(draw, cx, cy)
 
+    # ── Partly sunny: small sun top-right + cloud bottom-left ───────────────
     elif p in (2, 3, 26):
-        # ── Partly sunny: small sun top-right + cloud bottom-left ──────────
-        # Sun
-        sx, sy, sr = cx + 7, cy - 7, 6
-        draw.ellipse([sx - sr, sy - sr, sx + sr, sy + sr], outline=0, width=1)
-        for deg in (0, 45, 90, 135, 180, 225, 270, 315):
-            rad = math.radians(deg)
-            draw.line([
-                int(sx + math.cos(rad) * (sr + 2)), int(sy + math.sin(rad) * (sr + 2)),
-                int(sx + math.cos(rad) * (sr + 5)), int(sy + math.sin(rad) * (sr + 5)),
-            ], fill=0, width=1)
-        # Cloud (overlapping)
-        _draw_cloud(draw, cx - 5, cy + 5, 14, 9)
+        _draw_sun(draw, cx + 8, cy - 8, r=6, ray_len=4)
+        _draw_cloud(draw, cx - 3, cy + 5, size="small")
 
+    # ── Cloudy / Overcast ───────────────────────────────────────────────────
     elif p in (4, 5):
-        # ── Cloudy/Overcast: large cloud ────────────────────────────────────
-        _draw_cloud(draw, cx, cy + 2, 18, 12)
+        _draw_cloud(draw, cx, cy + 2)
 
+    # ── Fog: three horizontal dashed lines ──────────────────────────────────
     elif p == 6:
-        # ── Fog: horizontal dashed lines ────────────────────────────────────
-        for row in range(4):
-            fy = cy - 8 + row * 6
-            for seg in range(3):
-                fx = cx - 14 + seg * 10
-                draw.line([fx, fy, fx + 7, fy], fill=0, width=1)
+        for row in range(3):
+            fy = cy - 6 + row * 8
+            for seg in range(4):
+                fx = cx - 15 + seg * 9
+                draw.line([fx, fy, fx + 6, fy], fill=0, width=2)
 
+    # ── Light rain: cloud + 2 thin drops ────────────────────────────────────
     elif p in (7, 11):
-        # ── Light rain: cloud + 2 drops ─────────────────────────────────────
-        _draw_cloud(draw, cx, cy - 4, 16, 9)
-        for dx in (-5, 5):
-            draw.line([cx + dx, cy + 8, cx + dx, cy + 13], fill=0, width=1)
+        _draw_cloud(draw, cx, cy - 4)
+        _draw_raindrop(draw, cx - 5, cy + 10, length=5, width=1)
+        _draw_raindrop(draw, cx + 5, cy + 10, length=5, width=1)
 
+    # ── Moderate rain: cloud + 3 drops ──────────────────────────────────────
     elif p in (8, 12):
-        # ── Rain: cloud + 3 drops ───────────────────────────────────────────
-        _draw_cloud(draw, cx, cy - 4, 16, 9)
-        for dx in (-8, 0, 8):
-            draw.line([cx + dx, cy + 8, cx + dx, cy + 14], fill=0, width=1)
+        _draw_cloud(draw, cx, cy - 4)
+        _draw_raindrop(draw, cx - 7, cy + 10, length=6, width=1)
+        _draw_raindrop(draw, cx,     cy + 10, length=6, width=1)
+        _draw_raindrop(draw, cx + 7, cy + 10, length=6, width=1)
 
+    # ── Heavy rain: cloud + 4 thick drops ───────────────────────────────────
     elif p in (9, 13):
-        # ── Heavy rain: cloud + 4 drops ─────────────────────────────────────
-        _draw_cloud(draw, cx, cy - 4, 16, 9)
-        for dx in (-9, -3, 3, 9):
-            draw.line([cx + dx, cy + 8, cx + dx, cy + 15], fill=0, width=2)
+        _draw_cloud(draw, cx, cy - 4)
+        _draw_raindrop(draw, cx - 9, cy + 10, length=7, width=2)
+        _draw_raindrop(draw, cx - 3, cy + 10, length=7, width=2)
+        _draw_raindrop(draw, cx + 3, cy + 10, length=7, width=2)
+        _draw_raindrop(draw, cx + 9, cy + 10, length=7, width=2)
 
+    # ── Thunderstorm: cloud + lightning ─────────────────────────────────────
     elif p in (10, 14):
-        # ── Thunderstorm: cloud + lightning bolt ─────────────────────────────
-        _draw_cloud(draw, cx, cy - 6, 16, 9)
-        bolt = [(cx + 3, cy + 6), (cx - 1, cy + 12), (cx + 2, cy + 12), (cx - 3, cy + 19)]
-        draw.line(bolt, fill=0, width=2)
+        _draw_cloud(draw, cx, cy - 6)
+        _draw_lightning(draw, cx, cy + 5)
 
-    elif 15 <= p <= 21:
-        # ── Snow: cloud + 3 snowflake crosses ───────────────────────────────
-        _draw_cloud(draw, cx, cy - 4, 16, 9)
-        for dx in (-6, 0, 6):
-            sx, sy = cx + dx, cy + 11
-            draw.line([sx - 3, sy, sx + 3, sy], fill=0, width=1)
-            draw.line([sx, sy - 3, sx, sy + 3], fill=0, width=1)
+    # ── Light snow: cloud + 2 small flakes ──────────────────────────────────
+    elif p in (15, 16, 17):
+        _draw_cloud(draw, cx, cy - 4)
+        _draw_snowflake(draw, cx - 5, cy + 12, size=3)
+        _draw_snowflake(draw, cx + 5, cy + 12, size=3)
 
-    elif 22 <= p <= 25:
-        # ── Sleet: cloud + alternating drop and dot ──────────────────────────
-        _draw_cloud(draw, cx, cy - 4, 16, 9)
-        draw.line([cx - 6, cy + 8, cx - 6, cy + 13], fill=0, width=1)   # drop
-        dot_x, dot_y = cx, cy + 11
-        draw.ellipse([dot_x - 2, dot_y - 2, dot_x + 2, dot_y + 2], fill=0)  # snow
-        draw.line([cx + 6, cy + 8, cx + 6, cy + 13], fill=0, width=1)   # drop
+    # ── Moderate snow: cloud + 3 flakes at varying heights ──────────────────
+    elif p in (18, 19):
+        _draw_cloud(draw, cx, cy - 4)
+        _draw_snowflake(draw, cx - 7, cy + 11, size=3)
+        _draw_snowflake(draw, cx,     cy + 15, size=3)
+        _draw_snowflake(draw, cx + 7, cy + 11, size=3)
 
+    # ── Heavy snow: cloud + 4 flakes in two rows ─────────────────────────
+    elif p in (20, 21):
+        _draw_cloud(draw, cx, cy - 4)
+        _draw_snowflake(draw, cx - 6, cy + 10, size=3)
+        _draw_snowflake(draw, cx + 6, cy + 10, size=3)
+        _draw_snowflake(draw, cx - 6, cy + 17, size=3)
+        _draw_snowflake(draw, cx + 6, cy + 17, size=3)
+
+    # ── Light sleet: cloud + 1 drop + 1 flake ──────────────────────────────
+    elif p in (22, 23):
+        _draw_cloud(draw, cx, cy - 4)
+        _draw_raindrop(draw, cx - 5, cy + 10, length=6, width=1)
+        _draw_snowflake(draw, cx + 5, cy + 13, size=3)
+
+    # ── Heavy sleet: cloud + 2 drops + 2 flakes alternating ────────────────
+    elif p in (24, 25):
+        _draw_cloud(draw, cx, cy - 4)
+        _draw_raindrop(draw, cx - 8, cy + 10, length=6, width=2)
+        _draw_snowflake(draw, cx - 2, cy + 13, size=3)
+        _draw_raindrop(draw, cx + 4, cy + 10, length=6, width=2)
+        _draw_snowflake(draw, cx + 10, cy + 13, size=3)
+
+    # ── Fallback ────────────────────────────────────────────────────────────
     else:
-        # ── Fallback: simple rectangle ───────────────────────────────────────
         draw.rectangle([x + 10, y + 10, x + 30, y + 30], outline=0)
-
-
-def _draw_cloud(draw: ImageDraw, cx: int, cy: int, w: int, h: int):
-    """Draws a cloud shape centred at (cx, cy) with given half-width/height.
-    Bumps are drawn as top-arcs only to avoid internal line artifacts."""
-    # Bumps: top arc only (180→360 = left→top→right in PIL clockwise coords)
-    draw.arc([cx - w + 2, cy - h - 4, cx - 2, cy + 2], start=180, end=360, fill=0, width=1)
-    draw.arc([cx - 2, cy - h - 2, cx + w - 4, cy + 2], start=180, end=360, fill=0, width=1)
-    # Main body ellipse
-    draw.ellipse([cx - w, cy - h, cx + w, cy + h], outline=0, width=1)
-    # White fill to hide internal bump lines inside the body
-    draw.rectangle([cx - w + 1, cy - h + 1, cx + w - 1, cy - 1], fill=255)
-    # Redraw top arc of body (was whited out)
-    draw.arc([cx - w, cy - h, cx + w, cy + h], start=180, end=360, fill=0, width=1)
-    # White fill bottom half interior
-    draw.rectangle([cx - w + 1, cy, cx + w - 1, cy + h - 1], fill=255)
-    # Redraw bottom arc
-    draw.arc([cx - w, cy - h, cx + w, cy + h], start=0, end=180, fill=0, width=1)
