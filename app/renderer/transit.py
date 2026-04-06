@@ -39,6 +39,7 @@ def render_transit_section(draw: ImageDraw, x: int, y: int, station_name: str, d
     font_reg  = get_font(15, "Regular")
 
     PANEL_W      = 233  # rx=560 to x=793
+    DEST_X       = 33   # fixed x-offset for destination text so all names align
     header_height = 22
     row_height    = 22
 
@@ -60,9 +61,9 @@ def render_transit_section(draw: ImageDraw, x: int, y: int, station_name: str, d
             draw.rectangle([x, curr_y, x + 2 + line_w, curr_y + row_height - 2], fill=0)
             draw.text((x + 6, curr_y + 1), line, font=font_bold, fill=255)
 
-        # Destination (shortened to terminal name)
+        # Destination (shortened to terminal name), fixed x so all names align
         dest = _shorten_dest(dep.get("destination", "").replace("Zürich, ", ""))
-        draw.text((x + line_w + 8, curr_y - 1 ), dest, font=font_reg, fill=0)
+        draw.text((x + DEST_X, curr_y - 1), dest, font=font_reg, fill=0)
 
         # Time: right-aligned; if delayed show scheduled+delay
         delay = dep.get("delay", 0) or 0
