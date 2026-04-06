@@ -54,6 +54,7 @@ async def main():
                 fetch_stationboard(client, settings.TRANSIT_STATION_1),
                 fetch_stationboard(client, settings.TRANSIT_STATION_2),
             )
+            timestamps["transit"] = datetime.now().strftime("%H:%M")
             print(f"  station_1={len(s1)} deps  station_2={len(s2)} deps")
         except Exception as e:
             print(f"  ERROR: {e}")

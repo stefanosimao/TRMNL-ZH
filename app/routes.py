@@ -7,7 +7,7 @@ from datetime import datetime
 from .config import settings
 from .cache import global_cache
 from .services.searchch import fetch_stationboard
-from .services.meteosuisse import get_current_conditions, get_daily_forecast, get_sun_times, get_24h_series
+from .services.meteosuisse import get_current_conditions, get_daily_forecast, get_sun_times, get_next_24h_series
 from .renderer.screen import compose_screen
 
 router = APIRouter(prefix="/api")
@@ -42,6 +42,11 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         transit_1_task = fetch_stationboard(client, settings.TRANSIT_STATION_1)
         transit_2_task = fetch_stationboard(client, settings.TRANSIT_STATION_2)
         station_1_deps, station_2_deps = await asyncio.gather(transit_1_task, transit_2_task)
+        print(f"Transit: {len(station_1_deps)} deps from station_1, {len(station_2_deps)} from station_2")
+        for d in station_1_deps[:3]:
+            print(f"  S1: line={d.get('line')} dest={d.get('destination')} in={d.get('minutes')}min")
+        for d in station_2_deps[:3]:
+            print(f"  S2: line={d.get('line')} dest={d.get('destination')} in={d.get('minutes')}min")
     except Exception as e:
         print(f"Error fetching transit: {e}")
         station_1_deps, station_2_deps = [], []
@@ -56,10 +61,10 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
     sun_times = get_sun_times()
     forecasts = [get_daily_forecast(meteo_data, i) for i in range(3)] if meteo_data else [None, None, None]
     series = {
-        "temp":   get_24h_series(meteo_data, "tre200h0") if meteo_data else [None] * 24,
-        "precip": get_24h_series(meteo_data, "rre150h0") if meteo_data else [None] * 24,
-        "sun":    get_24h_series(meteo_data, "sre000h0") if meteo_data else [None] * 24,
-        "wind":   get_24h_series(meteo_data, "fu3010h0") if meteo_data else [None] * 24,
+        "temp":   get_next_24h_series(meteo_data, "tre200h0") if meteo_data else [None] * 24,
+        "precip": get_next_24h_series(meteo_data, "rre150h0") if meteo_data else [None] * 24,
+        "sun":    get_next_24h_series(meteo_data, "sre000h0") if meteo_data else [None] * 24,
+        "wind":   get_next_24h_series(meteo_data, "fu3010h0") if meteo_data else [None] * 24,
     }
 
     # Battery voltage header → approximate percentage (3.0V=0%, 4.2V=100%)
@@ -72,9 +77,10 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         except (ValueError, TypeError):
             pass
 
-    # Store transit snapshot so Gemini job can reference recent departures
+    # Store transit snapshot so Gemini job can reference recent departures + record timestamp
     transit_snapshot = {"station_1": station_1_deps, "station_2": station_2_deps}
     global_cache.set("transit_snapshot", transit_snapshot)
+    global_cache.set("transit", transit_snapshot)
 
     def _ts(key: str) -> str:
         meta = global_cache.get_with_meta(key)
@@ -99,10 +105,12 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
             "switchbot": _ts("switchbot"),
             "meteo":     _ts("meteo"),
             "summary":   _ts("summary"),
+            "transit":   _ts("transit"),
         },
-        "sun_times": sun_times,
-        "forecasts": forecasts,
-        "series":    series,
+        "sun_times":  sun_times,
+        "forecasts":  forecasts,
+        "series":     series,
+        "meteo_full": meteo_data,
     }
 
     # 4. Render 800x480 screen image

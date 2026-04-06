@@ -129,12 +129,13 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     - Sunshine: fixed 0-60
     - Wind: minimum 0-20, dynamic if higher
     """
-    font_tiny = get_font(10, "Regular")
+    font_tiny      = get_font(10, "Regular")
+    font_sun_label = get_font(12, "Regular")
 
     LEFT_PAD  = 32  # space for left Y-axis labels
     RIGHT_PAD = 36  # space for right Y-axis labels
-    chart_w   = 530 - LEFT_PAD - RIGHT_PAD
-    chart_h   = 110
+    chart_w   = 542 - LEFT_PAD - RIGHT_PAD
+    chart_h   = 120
     cx        = x + LEFT_PAD
 
     # ── Chart 1: Temperatura + Precipitazioni ─────────────────────────────────
@@ -192,7 +193,7 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     draw.text((ora_x + 2, c2y + 2), "ORA", font=font_tiny, fill=0)
 
     # Sunrise / Sunset markers with HH:MM label
-    for symbol, time_str in [("^", sunrise), ("v", sunset)]:
+    for symbol, time_str in [("↑", sunrise), ("↓", sunset)]:
         if not time_str:
             continue
         try:
@@ -202,9 +203,9 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
             mx = cx + int(hour_offset * chart_w / 24)
             draw.line([mx, c2y + chart_h - 6, mx, c2y + chart_h], fill=0, width=1)
             label = f"{symbol} {time_str}"
-            label_w = int(draw.textlength(label, font=font_tiny))
+            label_w = int(draw.textlength(label, font=font_sun_label))
             # Place label to the right unless it would overflow, then to the left
             lx = mx + 2 if mx + label_w + 2 < cx + chart_w else mx - label_w - 2
-            draw.text((lx, c2y + chart_h + 16), label, font=font_tiny, fill=0)
+            draw.text((lx, c2y + chart_h + 14), label, font=font_sun_label, fill=0)
         except (ValueError, AttributeError):
             pass

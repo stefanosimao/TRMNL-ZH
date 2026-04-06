@@ -46,7 +46,7 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
         "transportation_types": "tram,bus",
     }
 
-    response = await client.get(url, params=params)
+    response = await client.get(url, params=params, timeout=5.0)
     response.raise_for_status()
     data = response.json()
 
@@ -77,6 +77,7 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
                 continue
 
             delay = 0
+            scheduled_time = dep_time
             raw_delay = conn.get("dep_delay")
             if raw_delay:
                 try:
@@ -86,16 +87,17 @@ async def fetch_stationboard(client: httpx.AsyncClient, station: str) -> list:
                     pass
 
             diff = dep_time - now
-            minutes = round(diff.total_seconds() / 60)
-            if minutes < 0:
+            minutes = int(diff.total_seconds() / 60)  # floor, never rounds up
+            if minutes < 2:
                 continue
 
             results.append({
-                "line":        conn.get("line"),
-                "destination": terminal.replace("Zürich, ", ""), # Clean up destination
-                "minutes":     minutes,
-                "delay":       delay,
-                "time":        dep_time.strftime("%H:%M"),
+                "line":           conn.get("line"),
+                "destination":    terminal.replace("Zürich, ", ""),
+                "minutes":        minutes,
+                "delay":          delay,
+                "time":           dep_time.strftime("%H:%M"),
+                "scheduled_time": scheduled_time.strftime("%H:%M"),
             })
             count += 1
             if count >= f["count"]:

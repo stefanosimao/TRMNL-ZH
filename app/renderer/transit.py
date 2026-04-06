@@ -29,12 +29,13 @@ def render_transit_section(draw: ImageDraw, x: int, y: int, station_name: str, d
         dest = dep.get("destination", "").replace("Zürich, ", "")
         draw.text((x + line_w + 5, curr_y + 1), dest[:22], font=font_reg, fill=0)
 
-        # Minutes — sum delay into total so "3+2" becomes "5 min"
-        raw_mins = dep.get("minutes", 0)
+        # Show scheduled time; if delayed, show scheduled+delay so the sum is the real time
         delay = dep.get("delay", 0) or 0
-        total_mins = int(raw_mins) + int(delay)
-        min_text = f"{total_mins} min"
-        draw.text((x + 195, curr_y + 1), min_text, font=font_bold, fill=0)
+        if delay > 0:
+            time_text = f"{dep.get('scheduled_time', dep.get('time', ''))}+{delay}"
+        else:
+            time_text = dep.get("time", "")
+        draw.text((x + 175, curr_y + 1), time_text, font=font_bold, fill=0)
 
         curr_y += 18
 

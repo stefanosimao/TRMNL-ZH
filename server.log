@@ -1,0 +1,67 @@
+INFO:     Started server process [29666]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+Fetching MeteoSuisse data for PLZ: 8047
+Resolved PLZ 8047 → point_ids: {'804700'}
+SUCCESS: Found 220 entries for tre200h0
+SUCCESS: Found 219 entries for rre150h0
+SUCCESS: Found 219 entries for sre000h0
+SUCCESS: Found 219 entries for fu3010h0
+SUCCESS: Found 220 entries for dkl010h0
+SUCCESS: Found 217 entries for jww003i0
+SUCCESS: Found 9 entries for tre200px
+SUCCESS: Found 9 entries for tre200pn
+SUCCESS: Found 9 entries for rka150p0
+SUCCESS: Found 9 entries for jp2000d0
+Gemini error: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash\nPlease retry in 58.297073666s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'model': 'gemini-2.5-flash', 'location': 'global'}, 'quotaValue': '20'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '58s'}]}}
+TRMNL Log: {'logs': [{'created_at': 1775487765, 'id': 35, 'message': '[HTTPS] GET... failed, error: connection refused', 'source_line': 103, 'source_path': 'src/api-client/display.cpp', 'wifi_signal': -72, 'wifi_status': 'connected', 'refresh_rate': 45, 'sleep_duration': 48, 'firmware_version': '1.7.8', 'special_function': 'none', 'battery_voltage': 4.1, 'wake_reason': 'timer', 'free_heap_size': 207288, 'max_alloc_size': 184320, 'retry': 1}, {'created_at': 1775487765, 'id': 36, 'message': '[HTTPS] POST... failed, error: -1 connection refused', 'source_line': 61, 'source_path': 'src/api-client/submit_log.cpp', 'wifi_signal': -72, 'wifi_status': 'connected', 'refresh_rate': 45, 'sleep_duration': 48, 'firmware_version': '1.7.8', 'special_function': 'none', 'battery_voltage': 4.1, 'wake_reason': 'timer', 'free_heap_size': 206304, 'max_alloc_size': 184320, 'retry': 1}, {'created_at': 1775487765, 'id': 36, 'message': 'Error fetching API display: 7, detail: HTTP Client failed with error: connection refused(-1)', 'source_line': 626, 'source_path': 'src/bl.cpp', 'wifi_signal': -72, 'wifi_status': 'connected', 'refresh_rate': 45, 'sleep_duration': 48, 'firmware_version': '1.7.8', 'special_function': 'none', 'battery_voltage': 4.1, 'wake_reason': 'timer', 'free_heap_size': 207620, 'max_alloc_size': 184320, 'retry': 1}, {'created_at': 1775487765, 'id': 37, 'message': '[HTTPS] POST... failed, error: -1 connection refused', 'source_line': 61, 'source_path': 'src/api-client/submit_log.cpp', 'wifi_signal': -72, 'wifi_status': 'connected', 'refresh_rate': 15, 'sleep_duration': 48, 'firmware_version': '1.7.8', 'special_function': 'none', 'battery_voltage': 4.1, 'wake_reason': 'timer', 'free_heap_size': 204852, 'max_alloc_size': 180224, 'retry': 2}]}
+INFO:     192.168.1.121:56045 - "POST /api/log HTTP/1.1" 200 OK
+Transit: 5 deps from station_1, 2 from station_2
+  S1: line=80 dest=Zürich Oerlikon, Bahnhof Nord in=3min
+  S1: line=3 dest=Klusplatz in=5min
+  S1: line=80 dest=Triemlispital in=10min
+  S2: line=67 dest=Dunkelhölzli in=4min
+  S2: line=67 dest=Zürich Wiedikon, Bahnhof in=7min
+INFO:     192.168.1.121:56046 - "GET /api/display HTTP/1.1" 200 OK
+INFO:     192.168.1.121:56047 - "GET /generated/screen.png?v=1775487784 HTTP/1.1" 200 OK
+Transit: 5 deps from station_1, 2 from station_2
+  S1: line=80 dest=Zürich Oerlikon, Bahnhof Nord in=3min
+  S1: line=3 dest=Klusplatz in=5min
+  S1: line=80 dest=Triemlispital in=10min
+  S2: line=67 dest=Dunkelhölzli in=3min
+  S2: line=67 dest=Zürich Wiedikon, Bahnhof in=7min
+INFO:     192.168.1.121:52651 - "GET /api/display HTTP/1.1" 200 OK
+INFO:     192.168.1.121:52652 - "GET /generated/screen.png?v=1775487834 HTTP/1.1" 200 OK
+Transit: 5 deps from station_1, 2 from station_2
+  S1: line=80 dest=Zürich Oerlikon, Bahnhof Nord in=2min
+  S1: line=3 dest=Klusplatz in=4min
+  S1: line=80 dest=Triemlispital in=9min
+  S2: line=67 dest=Dunkelhölzli in=3min
+  S2: line=67 dest=Zürich Wiedikon, Bahnhof in=6min
+INFO:     192.168.1.121:50266 - "GET /api/display HTTP/1.1" 200 OK
+INFO:     192.168.1.121:50267 - "GET /generated/screen.png?v=1775487884 HTTP/1.1" 200 OK
+Transit: 5 deps from station_1, 2 from station_2
+  S1: line=3 dest=Klusplatz in=3min
+  S1: line=80 dest=Triemlispital in=8min
+  S1: line=80 dest=Zürich Oerlikon, Bahnhof Nord in=11min
+  S2: line=67 dest=Dunkelhölzli in=2min
+  S2: line=67 dest=Zürich Wiedikon, Bahnhof in=5min
+INFO:     192.168.1.121:51684 - "GET /api/display HTTP/1.1" 200 OK
+INFO:     192.168.1.121:51685 - "GET /generated/screen.png?v=1775487935 HTTP/1.1" 200 OK
+Transit: 5 deps from station_1, 2 from station_2
+  S1: line=3 dest=Klusplatz in=2min
+  S1: line=80 dest=Triemlispital in=7min
+  S1: line=80 dest=Zürich Oerlikon, Bahnhof Nord in=10min
+  S2: line=67 dest=Zürich Wiedikon, Bahnhof in=4min
+  S2: line=67 dest=Dunkelhölzli in=14min
+INFO:     192.168.1.121:64124 - "GET /api/display HTTP/1.1" 200 OK
+INFO:     192.168.1.121:64125 - "GET /generated/screen.png?v=1775487986 HTTP/1.1" 200 OK
+Transit: 5 deps from station_1, 2 from station_2
+  S1: line=80 dest=Triemlispital in=6min
+  S1: line=80 dest=Zürich Oerlikon, Bahnhof Nord in=9min
+  S1: line=3 dest=Klusplatz in=11min
+  S2: line=67 dest=Zürich Wiedikon, Bahnhof in=3min
+  S2: line=67 dest=Dunkelhölzli in=13min
+INFO:     192.168.1.121:54035 - "GET /api/display HTTP/1.1" 200 OK
+INFO:     192.168.1.121:54036 - "GET /generated/screen.png?v=1775488036 HTTP/1.1" 200 OK
