@@ -148,7 +148,7 @@ def compose_screen(data: dict) -> Image.Image:
     draw.rectangle([rx, summary_y, 793, summary_bottom], outline=0, width=1)
 
     draw.rectangle([rx, summary_y, 793, summary_y + 19], fill=0)
-    draw.text((rx + 4, summary_y - 2), "RIEPILOGO INTELLIGENTE", font=font_reg, fill=255)
+    draw.text((rx + 4, summary_y+1), "RIEPILOGO INTELLIGENTE", font=font_small, fill=255)
     draw.text((rx + 4, summary_y + 22),
               f"AGGIORNATO {ts.get('summary', '--:--')}", font=font_tiny, fill=0)
 

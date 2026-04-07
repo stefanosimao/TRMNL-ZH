@@ -2,8 +2,11 @@ import os
 from PIL import ImageFont
 from functools import lru_cache
 
+_FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
+
 _FONT_VARIANTS = {
     "Regular": [
+        os.path.join(_FONTS_DIR, "LiberationSans-Regular.ttf"),
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
         "/System/Library/Fonts/Supplemental/DejaVuSans.ttf",
@@ -14,6 +17,7 @@ _FONT_VARIANTS = {
         "/Library/Fonts/Arial.ttf",
     ],
     "Bold": [
+        os.path.join(_FONTS_DIR, "LiberationSans-Bold.ttf"),
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
         "/System/Library/Fonts/Supplemental/DejaVuSans-Bold.ttf",
