@@ -152,13 +152,14 @@ def compose_screen(data: dict) -> Image.Image:
     draw.text((rx + 4, summary_y + 22),
               f"AGGIORNATO {ts.get('summary', '--:--')}", font=font_tiny, fill=0)
 
-    # Word-wrap summary text
+    # Word-wrap summary text using the same font for measuring and drawing
     summary_text = data.get("summary", "Caricamento riepilogo intelligente...")
-    max_px = 793 - rx - 77
+    summary_font = font_small  # 14px Regular
+    max_px = 793 - rx - 8
     lines, current_line = [], ""
     for word in summary_text.split():
         test = (current_line + " " + word).strip()
-        w = draw.textlength(test, font=font_tiny)
+        w = draw.textlength(test, font=summary_font)
         if w <= max_px:
             current_line = test
         else:
@@ -170,10 +171,10 @@ def compose_screen(data: dict) -> Image.Image:
 
     text_y = summary_y + 36
     for line in lines:
-        if text_y + 13 > summary_bottom - 4:
+        if text_y + 15 > summary_bottom - 4:
             break
-        draw.text((rx + 4, text_y), line, font=font_reg, fill=0)
-        text_y += 16
+        draw.text((rx + 4, text_y), line, font=summary_font, fill=0)
+        text_y += 17
 
     # ── Timestamps footer (below summary) ────────────────────────────────────
     ts_line = (f"SB {ts.get('switchbot', '--')}  "
