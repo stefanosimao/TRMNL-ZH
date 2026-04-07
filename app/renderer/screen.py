@@ -108,7 +108,7 @@ def compose_screen(data: dict) -> Image.Image:
             draw.text((x + 66, 94), f"↑{day_sun['sunrise']} ↓{day_sun['sunset']}", font=font_small, fill=0)
 
             precip = forecast.get("precip") or 0
-            draw.text((x + 67, 113), f"{precip:.1f} mm", font=font_small, fill=0)
+            draw.text((x + 67, 113), f"{precip:.1f} mm", font=get_font(14, "Bold"), fill=0)
 
     # ── Rows 3+4: Charts ──────────────────────────────────────────────────────
     series = data.get("series", {})
@@ -177,9 +177,9 @@ def compose_screen(data: dict) -> Image.Image:
         text_y += 17
 
     # ── Timestamps footer (below summary) ────────────────────────────────────
-    ts_line = (f"SB {ts.get('switchbot', '--')}  "
-               f"/ T {ts.get('transit', '--')}  "
-               f"/ M {ts.get('meteo', '--')}  "
+    ts_line = (f"SB {ts.get('switchbot', '--')} "
+               f"/ T {ts.get('transit', '--')} "
+               f"/ M {ts.get('meteo', '--')} "
                f"/ G {ts.get('summary', '--')}")
     draw.text((rx, summary_bottom + 4), ts_line, font=get_font(13, "Regular"), fill=0)
 
