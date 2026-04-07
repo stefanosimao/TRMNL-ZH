@@ -27,7 +27,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from ..config import settings
 
-_ZURICH_TZ = ZoneInfo("Europe/Zurich")
+_ZURICH_TZ = ZoneInfo(settings.TIMEZONE)
 
 
 def _get_relevant_hours(weather: dict, is_night: bool) -> dict:

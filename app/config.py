@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Wetter-Alarm — POI 142941 corresponds to Zürich Albisrieden
     WETTERALARM_POI_ID: int = 142941
 
+    # Timezone
+    TIMEZONE: str = "Europe/Zurich"
+
     # Server / Paths
     SERVER_HOST: str = "0.0.0.0"
     SERVER_PORT: int = 8000

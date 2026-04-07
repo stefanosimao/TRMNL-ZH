@@ -6,6 +6,7 @@ from .charts import render_weather_charts
 from .weather_icons import draw_weather_icon
 from ..services.meteosuisse import get_daily_forecast, get_sun_times, get_next_24h_series
 from zoneinfo import ZoneInfo
+from ..config import settings
 
 # Italian abbreviated day names (Monday=0 … Sunday=6)
 _IT_DAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"]
@@ -120,7 +121,7 @@ def compose_screen(data: dict) -> Image.Image:
             "wind":   get_next_24h_series(meteo_full, "fu3010h0"),
         }
 
-    _now_zh = datetime.now(ZoneInfo("Europe/Zurich"))
+    _now_zh = datetime.now(ZoneInfo(settings.TIMEZONE))
     start_hour = (_now_zh.hour - 1) % 24
     sun_times = get_sun_times(today)
     render_weather_charts(

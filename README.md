@@ -108,9 +108,16 @@ GEMINI_API_KEY=""
 
 # Server - set to your public URL when deploying
 BASE_URL="http://localhost:8000"
+
+# Optional overrides
+# TRANSIT_STATION_1="Zürich, Albisrieden"
+# TRANSIT_STATION_2="Zürich, Fellenbergstrasse"
+# METEO_PLZ="8047"
+# WETTERALARM_POI_ID=142941
+# TIMEZONE="Europe/Zurich"
 ```
 
-Everything else has sensible defaults: station names, PLZ 8047, Wetter-Alarm POI 142941 (Albisrieden), 45-second refresh.
+Everything else has sensible defaults: station names, PLZ 8047, Wetter-Alarm POI 142941 (Albisrieden), timezone (Europe/Zurich), and 45-second refresh.
 
 ### Finding your SwitchBot device IDs
 

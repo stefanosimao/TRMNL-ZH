@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from .config import settings
 
-_ZURICH_TZ = ZoneInfo("Europe/Zurich")
+_ZURICH_TZ = ZoneInfo(settings.TIMEZONE)
 from .cache import global_cache
 from .services.searchch import fetch_stationboard
 from .services.meteosuisse import get_current_conditions, get_daily_forecast, get_sun_times, get_next_24h_series
@@ -25,8 +25,8 @@ def voltage_to_percent(v: float) -> int:
         (3.90, 60),
         (3.80, 40),
         (3.70, 20),
-        (3.60, 10),
-        (3.30, 0)
+        (3.50, 10),
+        (3.20, 0)
     ]
     if v >= curve[0][0]: return curve[0][1]
     if v <= curve[-1][0]: return curve[-1][1]

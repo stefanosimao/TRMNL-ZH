@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from ..config import settings
 
-_ZURICH_TZ = ZoneInfo("Europe/Zurich")
+_ZURICH_TZ = ZoneInfo(settings.TIMEZONE)
 
 # ── Filter configuration ─────────────────────────────────────────────────
 # Each filter specifies a line, allowed terminal names (empty = any direction),

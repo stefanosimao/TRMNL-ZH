@@ -14,7 +14,7 @@ from .services.wetteralarm import fetch_alerts, format_alerts_for_prompt
 from .services.searchch import fetch_stationboard
 from .services.gemini import generate_summary
 
-_ZURICH_TZ = ZoneInfo("Europe/Zurich")
+_ZURICH_TZ = ZoneInfo(settings.TIMEZONE)
 
 scheduler = AsyncIOScheduler()
 
@@ -214,7 +214,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(update_gemini_summary,              'interval', minutes=30, args=[app.state.client])
     # Pre-warm all caches at 04:55 so data is fresh when the device wakes at 05:00
     scheduler.add_job(_prewarm_all_caches,                'cron', hour=4, minute=55, args=[app.state.client],
-                      timezone='Europe/Zurich')
+                      timezone=settings.TIMEZONE)
 
     scheduler.start()
 

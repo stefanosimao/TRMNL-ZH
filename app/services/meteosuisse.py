@@ -8,7 +8,7 @@ from typing import List, Optional
 from zoneinfo import ZoneInfo
 from ..config import settings
 
-_ZURICH_TZ = ZoneInfo("Europe/Zurich")
+_ZURICH_TZ = ZoneInfo(settings.TIMEZONE)
 
 HOURLY_PARAMS = [
     "tre200h0",  # Air temperature 2m, hourly mean (°C)
@@ -67,7 +67,7 @@ def get_sun_times(target_date: Optional[date] = None) -> dict:
         dict: A dictionary containing 'sunrise' and 'sunset' formatted as 'HH:MM'.
     """
     target_date = target_date or datetime.now(_ZURICH_TZ).date()
-    city = LocationInfo("Zurich", "Switzerland", "Europe/Zurich", 47.37, 8.52)
+    city = LocationInfo("Zurich", "Switzerland", settings.TIMEZONE, 47.37, 8.52)
     s = sun(city.observer, date=target_date, tzinfo=_ZURICH_TZ)
     return {
         "sunrise": s["sunrise"].strftime("%H:%M"),
