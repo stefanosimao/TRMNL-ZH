@@ -154,7 +154,7 @@ def compose_screen(data: dict) -> Image.Image:
 
     # Word-wrap summary text using the same font for measuring and drawing
     summary_text = data.get("summary", "Caricamento riepilogo intelligente...")
-    summary_font = font_small  # 14px Regular
+    summary_font = get_font(15, "Regular")
     max_px = 793 - rx - 8
     lines, current_line = [], ""
     for word in summary_text.split():

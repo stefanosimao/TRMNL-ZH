@@ -113,7 +113,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
 
     lines = [
         "Sei un assistente meteo per Zurigo, zona Albisrieden.",
-        "Scrivi UN paragrafo conciso in italiano (MAX 320 CARATTERI).",
+        "Scrivi UN paragrafo conciso in italiano (MAX 300 CARATTERI).",
         "",
         f"CONTESTO TEMPORALE: {time_context}",
         "",
@@ -188,7 +188,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
             lines.append(f"  {d}")
 
     lines.append("")
-    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 320 caratteri.")
+    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 300 caratteri.")
     return "\n".join(lines)
 
 
@@ -204,7 +204,7 @@ def _truncate_at_word_boundary(text: str, limit: int) -> str:
     return truncated.rstrip(".,;:!? ") + "…"
 
 
-_MAX_CHARS = 320
+_MAX_CHARS = 300
 
 
 async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
