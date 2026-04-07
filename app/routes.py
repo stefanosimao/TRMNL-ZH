@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from starlette.responses import JSONResponse
+from PIL import Image
 import time
 import os
 import asyncio
@@ -134,8 +135,13 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         d.text((20, 230), datetime.now(_ZURICH_TZ).strftime("%H:%M:%S"), font=get_font(18, "Regular"), fill=0)
 
     image_path = os.path.join(settings.IMAGE_DIR, "screen.png")
-    # Grayscale PNG: avoids the 1-bit PNG byte-packing artifact at the bottom.
-    img.convert("L").save(image_path, optimize=False)
+    # Pipeline matching the official byos_fastapi approach:
+    # 1. Convert to grayscale (cleans up mode "1" drawing artifacts)
+    # 2. Convert back to 1-bit with no dithering (image is already pure B&W)
+    # 3. Save as uncompressed PNG (compress_level=0) — avoids bottom-row
+    #    artifact caused by zlib decompression edge cases in the ESP32 decoder
+    img_out = img.convert("L").convert("1", dither=Image.Dither.NONE)
+    img_out.save(image_path, format="PNG", compress_level=0)
 
     # 5. Return JSON metadata per BYOS spec
     timestamp = int(time.time())
