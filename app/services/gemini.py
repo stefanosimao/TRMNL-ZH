@@ -3,19 +3,23 @@ Gemini 2.5 Flash integration for the "Riepilogo Intelligente" panel.
 
 Builds a structured Italian prompt from cached weather, forecast, alert,
 and transit data, then calls Gemini to produce a single concise paragraph
-(max 395 characters) with practical advice: what to wear, whether to
+(max 320 characters) with practical advice: what to wear, whether to
 carry an umbrella, and any active weather alerts or transit disruptions.
 
+If the response exceeds the limit, a single retry asks Gemini to shorten
+it. As a final safety net, the text is truncated at the nearest word
+boundary.
+
 The prompt is time-aware:
-  - Daytime (05:00–21:59): focuses on the next 30 min / coming hours.
-  - Night   (22:00–04:59): focuses on tomorrow morning's conditions.
+  - Daytime (05:00-21:59): focuses on the next 30 min / coming hours.
+  - Night   (22:00-04:59): focuses on tomorrow morning's conditions.
 
 Hourly temperature, precipitation, and wind data are included so the
 model bases its advice on actual numbers rather than hallucinating from
-daily min/max or alert titles (e.g. ground-frost alerts ≠ air temp 0°C).
+daily min/max or alert titles (e.g. ground-frost alerts != air temp 0 C).
 
 Transit disruptions are limited to lines 3 and 80 (delays and
-cancellations only — departure times are already visible on the display).
+cancellations only - departure times are already visible on the display).
 """
 import asyncio
 from google import genai
@@ -208,7 +212,7 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
     Calls Gemini 2.5 Flash to produce the Italian summary paragraph.
 
     The synchronous google-genai client is wrapped in asyncio.to_thread
-    so it doesn't block the event loop.  If the response exceeds 390
+    so it doesn't block the event loop.  If the response exceeds 320
     characters, a single retry asks Gemini to shorten it.  As a last
     resort, the text is truncated at the nearest word boundary.
     """

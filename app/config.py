@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # Server / Paths
     SERVER_HOST: str = "0.0.0.0"
     SERVER_PORT: int = 8000
-    IMAGE_DIR: str = "generated"  # Directory to serve and store the rendered screen.png
+    IMAGE_DIR: str = "generated"  # Directory to serve and store the rendered display image
     BASE_URL: str = "http://localhost:8000"  # Needed to give the TRMNL device absolute URLs
     
 settings = Settings()

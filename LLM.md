@@ -20,8 +20,8 @@ The project is in a **Mature/Maintenance** state. All core services from the ori
 | **Weather** | ✅ Complete | `MeteoSuisse` E4 CSV parsing for PLZ 8047. |
 | **Sensors** | ✅ Complete | `SwitchBot` API v1.1 with HMAC-SHA256 signing. |
 | **Alerts** | ✅ Complete | `Wetter-Alarm` POI 142941 integration. |
-| **AI Summary** | ✅ Complete | `Gemini 2.5 Flash` with time-aware prompting. |
-| **Renderer** | ✅ Complete | Pillow-based 800×480 1-bit compositor with custom charts. |
+| **AI Summary** | ✅ Complete | `Gemini 2.5 Flash` with time-aware prompting, retry logic, max 320 chars. |
+| **Renderer** | ✅ Complete | Pillow-based 800x480 compositor with custom charts. Saved as grayscale PNG. |
 | **Caching** | ✅ Complete | In-memory cache with per-source timestamps & error state. |
 
 ---
@@ -39,7 +39,7 @@ The project is in a **Mature/Maintenance** state. All core services from the ori
 ### Right Panel (245px)
 - **Transit Section 1**: ALBISRIEDEN (5 slots: Tram 3, Bus 80).
 - **Transit Section 2**: FELLENBERGSTR. (2 slots: Bus 67).
-- **AI Summary**: "Riepilogo Intelligente" (Italian paragraph, max 395 chars).
+- **AI Summary**: "Riepilogo Intelligente" (Italian paragraph, max 320 chars).
 - **Footer**: Last-refresh timestamps for all 4 data categories (SB/T/M/G).
 
 ---

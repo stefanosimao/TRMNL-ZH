@@ -124,7 +124,7 @@ async def _run_gemini_summary(client: httpx.AsyncClient):
 
 
 async def update_gemini_summary(client: httpx.AsyncClient):
-    """Job: regenerate Italian summary (every 60 min)."""
+    """Job: regenerate Italian summary (every 30 min)."""
     if _is_night_quiet():
         return
     await _run_gemini_summary(client)
