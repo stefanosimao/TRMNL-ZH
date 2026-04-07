@@ -88,7 +88,7 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
     def _ts(key: str) -> str:
         meta = global_cache.get_with_meta(key)
         if meta and meta.get("timestamp"):
-            return datetime.fromtimestamp(meta["timestamp"]).strftime("%H:%M")
+            return datetime.fromtimestamp(meta["timestamp"], tz=_ZURICH_TZ).strftime("%H:%M")
         return "--:--"
 
     # 3. Build data bundle for renderer
@@ -127,7 +127,7 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         img = Image.new("1", (800, 480), 255)
         d = ImageDraw.Draw(img)
         d.text((20, 200), f"⚠ Errore rendering: {str(e)[:80]}", font=get_font(18, "Regular"), fill=0)
-        d.text((20, 230), datetime.now().strftime("%H:%M:%S"), font=get_font(18, "Regular"), fill=0)
+        d.text((20, 230), datetime.now(_ZURICH_TZ).strftime("%H:%M:%S"), font=get_font(18, "Regular"), fill=0)
 
     image_path = os.path.join(settings.IMAGE_DIR, "screen.png")
     # Convert 1-bit → 8-bit grayscale before saving.

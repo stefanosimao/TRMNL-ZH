@@ -249,4 +249,4 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
         return text
     except Exception as e:
         print(f"Gemini error: {e}")
-        return f"Riepilogo non disponibile ({datetime.now().strftime('%H:%M')})."
+        return f"Riepilogo non disponibile ({datetime.now(_ZURICH_TZ).strftime('%H:%M')})."
