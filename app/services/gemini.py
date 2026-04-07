@@ -190,7 +190,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
             lines.append(f"  {d}")
 
     lines.append("")
-    lines.append(f"Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Il display ha esattamente {_SUMMARY_MAX_LINES} righe da ~22 caratteri ciascuna. Devi riempire tutte le {_SUMMARY_MAX_LINES} righe (~220 caratteri). Se il contenuto meteo non basta, aggiungi una curiosità divertente, un fatto interessante o una buona notizia su Zurigo.")
+    lines.append(f"Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Il display ha {_SUMMARY_MAX_LINES} righe da ~22 caratteri ciascuna. Punta a riempire 9-10 righe (~200-220 caratteri). Se il contenuto meteo non basta, aggiungi una curiosità divertente, un fatto interessante o una buona notizia su Zurigo.")
     return "\n".join(lines)
 
 
@@ -198,7 +198,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
 _SUMMARY_PANEL_WIDTH_PX = 793 - 560 - 8   # 225px
 _SUMMARY_LINE_HEIGHT    = 17               # px per wrapped line
 _SUMMARY_MAX_LINES      = 10
-_MIN_LINES              = 10
+_MIN_LINES              = 9
 _GEMINI_MODEL           = "gemini-2.5-flash"
 
 
