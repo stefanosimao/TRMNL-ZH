@@ -190,7 +190,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
             lines.append(f"  {d}")
 
     lines.append("")
-    lines.append(f"Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Il display ha {_SUMMARY_MAX_LINES} righe da ~22 caratteri ciascuna. Punta a riempire 9-10 righe (~200-220 caratteri). Se il contenuto meteo non basta, aggiungi una curiosità divertente, un fatto interessante o una buona notizia su Zurigo.")
+    lines.append(f"Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Il display ha {_SUMMARY_MAX_LINES} righe da ~30 caratteri ciascuna. Punta a riempire 9-10 righe (~270-300 caratteri). Se il contenuto meteo non basta, aggiungi una curiosità divertente, un fatto interessante o una buona notizia su Zurigo.")
     return "\n".join(lines)
 
 
@@ -243,7 +243,7 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
                 print(f"Gemini summary too long ({n_lines} lines, attempt {attempt + 1}), requesting shorter version...")
                 shorten_prompt = (
                     f"Il seguente testo occupa {n_lines} righe sul display ma ne abbiamo solo {_SUMMARY_MAX_LINES}. "
-                    f"Riscrivilo più corto in modo che stia in {_SUMMARY_MAX_LINES} righe (~{_SUMMARY_MAX_LINES * 22} caratteri max). "
+                    f"Riscrivilo più corto in modo che stia in {_SUMMARY_MAX_LINES} righe (~{_SUMMARY_MAX_LINES * 30} caratteri max). "
                     f"Rispondi SOLO con il testo riscritto, senza commenti.\n\n{text}"
                 )
                 retry_response = await asyncio.to_thread(
@@ -258,7 +258,7 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
                 search_tool = types.Tool(google_search=types.GoogleSearch())
                 expand_prompt = (
                     f"Il seguente testo occupa solo {n_lines} righe ma il display ne contiene {_SUMMARY_MAX_LINES}. "
-                    f"Espandilo fino a esattamente {_SUMMARY_MAX_LINES} righe (~{_SUMMARY_MAX_LINES * 22} caratteri). "
+                    f"Espandilo fino a {_SUMMARY_MAX_LINES} righe (~{_SUMMARY_MAX_LINES * 30} caratteri). "
                     f"Cerca online e aggiungi un fatto curioso, una buona notizia o qualcosa di interessante e positivo su Zurigo oggi. "
                     f"Rispondi SOLO con il testo riscritto, senza commenti.\n\n{text}"
                 )
