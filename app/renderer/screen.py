@@ -100,8 +100,8 @@ def compose_screen(data: dict) -> Image.Image:
 
             min_t = forecast.get("min_temp")
             max_t = forecast.get("max_temp")
-            min_s = f"{min_t:.0f}" if isinstance(min_t, float) else "--"
-            max_s = f"{max_t:.0f}" if isinstance(max_t, float) else "--"
+            min_s = f"{min_t:.0f}" if isinstance(min_t, (int, float)) else "--"
+            max_s = f"{max_t:.0f}" if isinstance(max_t, (int, float)) else "--"
             draw.text((x + 66, 72), f"{min_s} / {max_s}°", font=font_reg, fill=0)
 
             day_sun = get_sun_times(today + timedelta(days=i))
@@ -177,7 +177,7 @@ def compose_screen(data: dict) -> Image.Image:
         text_y += 17
 
     # ── Timestamps footer (below summary) ────────────────────────────────────
-    ts_line = (f"SB {ts.get('switchbot', '--')} "
+    ts_line = (f"S {ts.get('switchbot', '--')} "
                f"/ T {ts.get('transit', '--')} "
                f"/ M {ts.get('meteo', '--')} "
                f"/ G {ts.get('summary', '--')}")

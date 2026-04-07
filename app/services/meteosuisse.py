@@ -163,7 +163,7 @@ async def fetch_meteosuisse_data(client: httpx.AsyncClient):
 
                     if raw_date and val_str:
                         try:
-                            # Convert YYYYMMDDHHMM to ISO format YYYY-MM-DDTHH:MM:00Z
+                            # MeteoSwiss E4 dates are in UTC (YYYYMMDDHHMM)
                             iso_date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}T{raw_date[8:10]}:{raw_date[10:12]}:00Z"
                             param_data.append({
                                 "valid_time": iso_date,
@@ -205,12 +205,15 @@ def get_24h_series(meteo_data: dict, param: str, target_date: datetime = None) -
     day_data = [None] * 24
     
     for entry in series:
-        # valid_time is UTC: "2026-04-02T15:00:00Z" → convert to Zurich local time
+        # valid_time is UTC: "2026-04-02T15:00:00Z" → convert to Zurich local time.
+        # MeteoSwiss timestamps mark the END of the aggregation interval, so we
+        # subtract 1 hour to get the start of the interval for chart display.
         try:
             v_utc = datetime.fromisoformat(entry["valid_time"].replace("Z", "+00:00"))
             v_local = v_utc.astimezone(_ZURICH_TZ)
-            if v_local.strftime("%Y-%m-%d") == date_str:
-                day_data[v_local.hour] = entry["value"]
+            display_hour = v_local - timedelta(hours=1)
+            if display_hour.strftime("%Y-%m-%d") == date_str:
+                day_data[display_hour.hour] = entry["value"]
         except (ValueError, KeyError):
             continue
                 

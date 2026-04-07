@@ -16,6 +16,29 @@ from .renderer.screen import compose_screen
 
 router = APIRouter(prefix="/api")
 
+def voltage_to_percent(v: float) -> int:
+    """Converts LiPo battery voltage to a percentage using piecewise linear approximation."""
+    curve = [
+        (4.20, 100),
+        (4.10, 90),
+        (4.00, 80),
+        (3.90, 60),
+        (3.80, 40),
+        (3.70, 20),
+        (3.60, 10),
+        (3.30, 0)
+    ]
+    if v >= curve[0][0]: return curve[0][1]
+    if v <= curve[-1][0]: return curve[-1][1]
+    
+    for i in range(len(curve) - 1):
+        v_high, p_high = curve[i]
+        v_low, p_low = curve[i+1]
+        if v_low <= v <= v_high:
+            pct = p_low + (p_high - p_low) * ((v - v_low) / (v_high - v_low))
+            return int(pct)
+    return 0
+
 async def verify_trmnl_request(request: Request):
     """Verify that the request comes from the authorized TRMNL device."""
     device_id = request.headers.get("ID")
@@ -71,13 +94,13 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         "wind":   get_next_24h_series(meteo_data, "fu3010h0") if meteo_data else [None] * 24,
     }
 
-    # Battery voltage header → approximate percentage (3.0V=0%, 4.2V=100%)
+    # Battery voltage header → approximate percentage
     battery_pct = None
     batt_voltage = request.headers.get("BATTERY_VOLTAGE")
     if batt_voltage:
         try:
             v = float(batt_voltage)
-            battery_pct = max(0, min(100, int((v - 3.0) / 1.2 * 100)))
+            battery_pct = voltage_to_percent(v)
             global_cache.set("battery_pct", battery_pct)
         except (ValueError, TypeError):
             pass
@@ -190,7 +213,7 @@ async def post_log(request: Request):
         if bv is not None:
             try:
                 v = float(bv)
-                pct = max(0, min(100, int((v - 3.0) / 1.2 * 100)))
+                pct = voltage_to_percent(v)
                 global_cache.set("battery_pct", pct)
             except (ValueError, TypeError):
                 pass
