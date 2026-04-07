@@ -6,7 +6,7 @@ import math
 
 def draw_24h_grid(draw: ImageDraw, x: int, y: int, width: int, height: int, start_hour: int = 0):
     """Draws the X-axis grid line and 3-hour tick marks with labels."""
-    font_tiny = get_font(10, "Bold")
+    font_tiny = get_font(11, "Bold")
 
     draw.line([x, y + height, x + width, y + height], fill=0)
 
@@ -21,7 +21,7 @@ def draw_24h_grid(draw: ImageDraw, x: int, y: int, width: int, height: int, star
 def draw_y_axis(draw: ImageDraw, x: int, y: int, height: int,
                 min_v: float, max_v: float, unit: str, right: bool = False, precision: int = 0):
     """Draws Y-axis ticks and labels (left or right side)."""
-    font_tiny = get_font(10, "Regular")
+    font_tiny = get_font(11, "Bold")
     steps = 4
     for i in range(steps + 1):
         val = min_v + (max_v - min_v) * i / steps
@@ -34,13 +34,13 @@ def draw_y_axis(draw: ImageDraw, x: int, y: int, height: int,
             lx = x - 3 - text_w  # right-align against the tick
         else:
             lx = x + 6
-        draw.text((lx, vy - 8), label, font=font_tiny, fill=0)
+        draw.text((lx, vy - 6), label, font=font_tiny, fill=0)
     # Unit label — right-aligned on left axis, left-aligned on right axis
     if not right:
         unit_w = int(draw.textlength(unit, font=font_tiny))
         ux = x - 2 - unit_w
     else:
-        ux = x + 6
+        ux = x + 4
     draw.text((ux, y - 20), unit, font=font_tiny, fill=0)
 
 
@@ -191,7 +191,7 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     draw.text((ora_x -11, c1y-15), "ORA", font=font_tiny, fill=0)
 
     # ── Chart 2: Sole + Vento ─────────────────────────────────────────────────
-    c2y = c1y + chart_h + 38
+    c2y = c1y + chart_h + 40
     draw_chart_title(draw, cx+165, c2y-2, "Sole (min/h) + Vento (km/h)")
     draw_24h_grid(draw, cx, c2y, chart_w, chart_h, start_hour=start_hour)
 
