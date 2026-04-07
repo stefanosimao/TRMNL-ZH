@@ -127,7 +127,7 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
     except Exception as e:
         print(f"Error rendering screen: {e}")
         # Fallback: minimal error image so the device never gets a blank screen
-        from PIL import Image, ImageDraw
+        from PIL import ImageDraw
         from .renderer.fonts import get_font
         img = Image.new("1", (800, 480), 255)
         d = ImageDraw.Draw(img)
