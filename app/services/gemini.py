@@ -3,12 +3,13 @@ Gemini 2.5 Flash integration for the "Riepilogo Intelligente" panel.
 
 Builds a structured Italian prompt from cached weather, forecast, alert,
 and transit data, then calls Gemini to produce a single concise paragraph
-(max 320 characters) with practical advice: what to wear, whether to
-carry an umbrella, and any active weather alerts or transit disruptions.
+with practical advice: what to wear, whether to carry an umbrella,
+and any active weather alerts or transit disruptions.
 
-If the response exceeds the limit, a single retry asks Gemini to shorten
-it. As a final safety net, the text is truncated at the nearest word
-boundary.
+After generation, the text is pixel-measured against the actual panel
+layout (word-wrap at the summary font/width).  If it overflows or
+underflows the box, up to 2 retries ask Gemini to adjust.  As a final
+safety net, the text is truncated to fit the available lines.
 
 The prompt is time-aware:
   - Daytime (05:00-21:59): focuses on the next 30 min / coming hours.
@@ -23,6 +24,7 @@ cancellations only - departure times are already visible on the display).
 """
 import asyncio
 from google import genai
+from google.genai import types
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from ..config import settings
@@ -188,24 +190,23 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
             lines.append(f"  {d}")
 
     lines.append("")
-    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Punta a 290-300 caratteri. Se il contenuto meteo non basta, aggiungi una battuta simpatica o curiosità su Zurigo.")
+    lines.append(f"Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Il display ha esattamente {_SUMMARY_MAX_LINES} righe da ~22 caratteri ciascuna. Devi riempire tutte le {_SUMMARY_MAX_LINES} righe (~220 caratteri). Se il contenuto meteo non basta, aggiungi una curiosità divertente, un fatto interessante o una buona notizia su Zurigo.")
     return "\n".join(lines)
 
 
-def _truncate_at_word_boundary(text: str, limit: int) -> str:
-    """Truncate text at the last word boundary within `limit` characters."""
-    if len(text) <= limit:
-        return text
-    truncated = text[:limit - 1]  # leave room for "…"
-    # Find last space to avoid cutting mid-word
-    last_space = truncated.rfind(" ")
-    if last_space > 0:
-        truncated = truncated[:last_space]
-    return truncated.rstrip(".,;:!? ") + "…"
+# Panel layout constants (must match screen.py)
+_SUMMARY_PANEL_WIDTH_PX = 793 - 560 - 8   # 225px
+_SUMMARY_LINE_HEIGHT    = 17               # px per wrapped line
+_SUMMARY_MAX_LINES      = 10
+_MIN_LINES              = 10
+_GEMINI_MODEL           = "gemini-2.5-flash"
 
 
-_MAX_CHARS = 300
-_MIN_CHARS = 290
+def _count_lines(text: str) -> int:
+    """Count how many wrapped lines *text* produces in the summary panel."""
+    from ..renderer.fonts import get_font, word_wrap
+    font = get_font(14, "Bold")
+    return len(word_wrap(text, font, _SUMMARY_PANEL_WIDTH_PX))
 
 
 async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
@@ -213,9 +214,10 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
     Calls Gemini 2.5 Flash to produce the Italian summary paragraph.
 
     The synchronous google-genai client is wrapped in asyncio.to_thread
-    so it doesn't block the event loop.  If the response exceeds 320
-    characters, a single retry asks Gemini to shorten it.  As a last
-    resort, the text is truncated at the nearest word boundary.
+    so it doesn't block the event loop.  After generation, the text is
+    measured against the actual panel layout (pixel word-wrap).  If it
+    overflows or underflows the box, up to 2 retries adjust the length.
+    As a last resort, the text is truncated at the nearest word boundary.
     """
     if not settings.GEMINI_API_KEY:
         return "Gemini API key non configurata."
@@ -226,50 +228,56 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
 
         response = await asyncio.to_thread(
             client.models.generate_content,
-            model="gemini-2.5-flash",
+            model=_GEMINI_MODEL,
             contents=prompt,
         )
         text = response.text.strip()
 
-        # If too long, ask Gemini once to shorten it
-        if len(text) > _MAX_CHARS:
-            print(f"Gemini summary too long ({len(text)} chars), requesting shorter version...")
-            shorten_prompt = (
-                f"Il seguente testo è troppo lungo ({len(text)} caratteri). "
-                f"Riscrivilo in massimo {_MAX_CHARS} caratteri mantenendo il significato. "
-                f"Rispondi SOLO con il testo riscritto, senza commenti.\n\n{text}"
-            )
-            retry_response = await asyncio.to_thread(
-                client.models.generate_content,
-                model="gemini-2.5-flash",
-                contents=shorten_prompt,
-            )
-            text = retry_response.text.strip()
+        # Convergence loop: retry up to 2 times to fit the panel
+        for attempt in range(2):
+            n_lines = _count_lines(text)
+            if _MIN_LINES <= n_lines <= _SUMMARY_MAX_LINES:
+                break
 
-        # Final safety net: truncate at word boundary
-        if len(text) > _MAX_CHARS:
-            print(f"Gemini summary still too long after retry ({len(text)} chars), truncating.")
-            text = _truncate_at_word_boundary(text, _MAX_CHARS)
+            if n_lines > _SUMMARY_MAX_LINES:
+                print(f"Gemini summary too long ({n_lines} lines, attempt {attempt + 1}), requesting shorter version...")
+                shorten_prompt = (
+                    f"Il seguente testo occupa {n_lines} righe sul display ma ne abbiamo solo {_SUMMARY_MAX_LINES}. "
+                    f"Riscrivilo più corto in modo che stia in {_SUMMARY_MAX_LINES} righe (~{_SUMMARY_MAX_LINES * 22} caratteri max). "
+                    f"Rispondi SOLO con il testo riscritto, senza commenti.\n\n{text}"
+                )
+                retry_response = await asyncio.to_thread(
+                    client.models.generate_content,
+                    model=_GEMINI_MODEL,
+                    contents=shorten_prompt,
+                )
+                text = retry_response.text.strip()
 
-        # If too short, ask Gemini to expand with something fun
-        if len(text) < _MIN_CHARS:
-            print(f"Gemini summary too short ({len(text)} chars), requesting expansion...")
-            expand_prompt = (
-                f"Il seguente testo è troppo corto ({len(text)} caratteri). "
-                f"Espandilo aggiungendo un commento simpatico o una curiosità divertente "
-                f"sul meteo o su Zurigo, fino a circa {_MAX_CHARS} caratteri. "
-                f"Rispondi SOLO con il testo riscritto, senza commenti.\n\n{text}"
-            )
-            expand_response = await asyncio.to_thread(
-                client.models.generate_content,
-                model="gemini-2.5-flash",
-                contents=expand_prompt,
-            )
-            expanded = expand_response.text.strip()
-            if len(expanded) <= _MAX_CHARS:
-                text = expanded
-            else:
-                text = _truncate_at_word_boundary(expanded, _MAX_CHARS)
+            elif n_lines < _MIN_LINES:
+                print(f"Gemini summary too short ({n_lines} lines, attempt {attempt + 1}), requesting expansion...")
+                search_tool = types.Tool(google_search=types.GoogleSearch())
+                expand_prompt = (
+                    f"Il seguente testo occupa solo {n_lines} righe ma il display ne contiene {_SUMMARY_MAX_LINES}. "
+                    f"Espandilo fino a esattamente {_SUMMARY_MAX_LINES} righe (~{_SUMMARY_MAX_LINES * 22} caratteri). "
+                    f"Cerca online e aggiungi un fatto curioso, una buona notizia o qualcosa di interessante e positivo su Zurigo oggi. "
+                    f"Rispondi SOLO con il testo riscritto, senza commenti.\n\n{text}"
+                )
+                expand_response = await asyncio.to_thread(
+                    client.models.generate_content,
+                    model=_GEMINI_MODEL,
+                    contents=expand_prompt,
+                    config=types.GenerateContentConfig(tools=[search_tool]),
+                )
+                text = expand_response.text.strip()
+
+        # Final safety net: truncate to fit the panel
+        lines = _count_lines(text)
+        if lines > _SUMMARY_MAX_LINES:
+            print(f"Gemini summary still too long after retries ({lines} lines), truncating.")
+            from ..renderer.fonts import get_font, word_wrap
+            font = get_font(14, "Bold")
+            wrapped = word_wrap(text, font, _SUMMARY_PANEL_WIDTH_PX)
+            text = " ".join(wrapped[:_SUMMARY_MAX_LINES])
 
         return text
     except Exception as e:

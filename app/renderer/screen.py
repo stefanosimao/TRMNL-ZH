@@ -1,6 +1,6 @@
 from PIL import Image, ImageDraw
 from datetime import datetime, date, timedelta
-from .fonts import get_font
+from .fonts import get_font, word_wrap
 from .transit import render_transit_section
 from .charts import render_weather_charts
 from .weather_icons import draw_weather_icon
@@ -156,25 +156,15 @@ def compose_screen(data: dict) -> Image.Image:
     # Word-wrap summary text using the same font for measuring and drawing
     summary_text = data.get("summary", "Caricamento riepilogo intelligente...")
     summary_font = get_font(14, "Bold")
-    max_px = 793 - rx - 8
-    lines, current_line = [], ""
-    for word in summary_text.split():
-        test = (current_line + " " + word).strip()
-        w = draw.textlength(test, font=summary_font)
-        if w <= max_px:
-            current_line = test
-        else:
-            if current_line:
-                lines.append(current_line)
-            current_line = word
-    if current_line:
-        lines.append(current_line)
+    summary_max_px = 793 - rx - 8
+    lines = word_wrap(summary_text, summary_font, summary_max_px)
+    max_lines = (summary_bottom - 4 - (summary_y + 36)) // 17
 
     text_y = summary_y + 36
-    for line in lines:
-        if text_y + 15 > summary_bottom - 4:
-            break
-        draw.text((rx + 4, text_y), line, font=summary_font, fill=0)
+    for i, line in enumerate(lines[:max_lines]):
+        is_last_visible = (i == max_lines - 1) and len(lines) > max_lines
+        display_line = line.rstrip(".,;:!? ") + "…" if is_last_visible else line
+        draw.text((rx + 4, text_y), display_line, font=summary_font, fill=0)
         text_y += 17
 
     # ── Timestamps footer (below summary) ────────────────────────────────────

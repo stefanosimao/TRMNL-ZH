@@ -1,5 +1,5 @@
 import os
-from PIL import ImageFont
+from PIL import ImageFont, ImageDraw, Image
 from functools import lru_cache
 
 _FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
@@ -38,3 +38,23 @@ def get_font(size: int, weight: str = "Regular"):
             except Exception:
                 continue
     return ImageFont.load_default()
+
+
+# Shared 1x1 image for text measurement (avoids creating one per call)
+_measure_draw = ImageDraw.Draw(Image.new("1", (1, 1)))
+
+
+def word_wrap(text: str, font: ImageFont.FreeTypeFont, max_px: int) -> list[str]:
+    """Word-wrap *text* to fit within *max_px* pixels using *font* metrics."""
+    lines, current = [], ""
+    for word in text.split():
+        test = (current + " " + word).strip()
+        if _measure_draw.textlength(test, font=font) <= max_px:
+            current = test
+        else:
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
