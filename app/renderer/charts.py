@@ -6,7 +6,7 @@ import math
 
 def draw_24h_grid(draw: ImageDraw, x: int, y: int, width: int, height: int, start_hour: int = 0):
     """Draws the X-axis grid line and 3-hour tick marks with labels."""
-    font_tiny = get_font(10, "Regular")
+    font_tiny = get_font(10, "Bold")
 
     draw.line([x, y + height, x + width, y + height], fill=0)
 

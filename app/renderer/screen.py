@@ -51,9 +51,9 @@ def compose_screen(data: dict) -> Image.Image:
     draw = ImageDraw.Draw(img)
 
     font_bold    = get_font(18, "Bold")
-    font_reg     = get_font(16, "Regular")
+    font_reg     = get_font(16, "Bold")
     font_small   = get_font(14, "Regular")
-    font_tiny    = get_font(11, "Regular")
+    font_tiny    = get_font(11, "Bold")
 
     # Vertical divider
     draw.line([555, 0, 555, 480], fill=0, width=1)
@@ -144,11 +144,11 @@ def compose_screen(data: dict) -> Image.Image:
 
     # ── Summary tile (extends to near bottom) ─────────────────────────────────
     summary_y      = y + 8
-    summary_bottom = 440
+    summary_bottom = 433
     draw.rectangle([rx, summary_y, 793, summary_bottom], outline=0, width=1)
 
     draw.rectangle([rx, summary_y, 793, summary_y + 19], fill=0)
-    draw.text((rx + 4, summary_y+1), "RIEPILOGO INTELLIGENTE", font=font_small, fill=255)
+    draw.text((rx + 4, summary_y+1), "RIEPILOGO INTELLIGENTE", font=get_font(14, "Bold"), fill=255)
     draw.text((rx + 4, summary_y + 22),
               f"AGGIORNATO {ts.get('summary', '--:--')}", font=font_tiny, fill=0)
 
@@ -181,6 +181,6 @@ def compose_screen(data: dict) -> Image.Image:
                f"/ T {ts.get('transit', '--')}  "
                f"/ M {ts.get('meteo', '--')}  "
                f"/ G {ts.get('summary', '--')}")
-    draw.text((rx, summary_bottom + 4), ts_line, font=font_tiny, fill=0)
+    draw.text((rx, summary_bottom + 4), ts_line, font=get_font(13, "Regular"), fill=0)
 
     return img

@@ -36,7 +36,7 @@ def render_transit_section(draw: ImageDraw, x: int, y: int, station_name: str, d
     can see both the original and the slip.
     """
     font_bold = get_font(17, "Bold")
-    font_reg  = get_font(15, "Regular")
+    font_reg  = get_font(15, "Bold")
 
     PANEL_W      = 233  # rx=560 to x=793
     DEST_X       = 33   # fixed x-offset for destination text so all names align
@@ -63,7 +63,7 @@ def render_transit_section(draw: ImageDraw, x: int, y: int, station_name: str, d
 
         # Destination (shortened to terminal name), fixed x so all names align
         dest = _shorten_dest(dep.get("destination", "").replace("Zürich, ", ""))
-        draw.text((x + DEST_X, curr_y + 1), dest, font=font_reg, fill=0)
+        draw.text((x + DEST_X, curr_y + 2), dest, font=font_reg, fill=0)
 
         # Time: right-aligned; if delayed show scheduled+delay
         delay = dep.get("delay", 0) or 0
