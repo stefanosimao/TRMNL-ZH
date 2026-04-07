@@ -188,7 +188,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
             lines.append(f"  {d}")
 
     lines.append("")
-    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 300 caratteri.")
+    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Punta a 290-300 caratteri. Se il contenuto meteo non basta, aggiungi una battuta simpatica o curiosità su Zurigo.")
     return "\n".join(lines)
 
 
@@ -205,6 +205,7 @@ def _truncate_at_word_boundary(text: str, limit: int) -> str:
 
 
 _MAX_CHARS = 300
+_MIN_CHARS = 290
 
 
 async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
@@ -249,6 +250,26 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
         if len(text) > _MAX_CHARS:
             print(f"Gemini summary still too long after retry ({len(text)} chars), truncating.")
             text = _truncate_at_word_boundary(text, _MAX_CHARS)
+
+        # If too short, ask Gemini to expand with something fun
+        if len(text) < _MIN_CHARS:
+            print(f"Gemini summary too short ({len(text)} chars), requesting expansion...")
+            expand_prompt = (
+                f"Il seguente testo è troppo corto ({len(text)} caratteri). "
+                f"Espandilo aggiungendo un commento simpatico o una curiosità divertente "
+                f"sul meteo o su Zurigo, fino a circa {_MAX_CHARS} caratteri. "
+                f"Rispondi SOLO con il testo riscritto, senza commenti.\n\n{text}"
+            )
+            expand_response = await asyncio.to_thread(
+                client.models.generate_content,
+                model="gemini-2.5-flash",
+                contents=expand_prompt,
+            )
+            expanded = expand_response.text.strip()
+            if len(expanded) <= _MAX_CHARS:
+                text = expanded
+            else:
+                text = _truncate_at_word_boundary(expanded, _MAX_CHARS)
 
         return text
     except Exception as e:
