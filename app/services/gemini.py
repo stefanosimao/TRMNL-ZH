@@ -198,7 +198,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
 _SUMMARY_PANEL_WIDTH_PX = 793 - 560 - 8   # 225px
 _SUMMARY_LINE_HEIGHT    = 17               # px per wrapped line
 _SUMMARY_MAX_LINES      = 10
-_MIN_LINES              = 9
+_MIN_LINES              = 8
 _GEMINI_MODEL           = "gemini-2.5-flash"
 
 
