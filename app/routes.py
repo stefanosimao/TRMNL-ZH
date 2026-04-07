@@ -77,8 +77,12 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         try:
             v = float(batt_voltage)
             battery_pct = max(0, min(100, int((v - 3.0) / 1.2 * 100)))
+            global_cache.set("battery_pct", battery_pct)
         except (ValueError, TypeError):
             pass
+    # Fallback: use battery percentage from the most recent /api/log POST
+    if battery_pct is None:
+        battery_pct = global_cache.get("battery_pct")
 
     # Store transit snapshot so Gemini job can reference recent departures + record timestamp
     transit_snapshot = {"station_1": station_1_deps, "station_2": station_2_deps}
@@ -174,6 +178,17 @@ async def post_log(request: Request):
     """
     data = await request.json()
     print(f"TRMNL Log: {data}")
+    # Extract battery voltage from log entries and cache it
+    for entry in data.get("logs", []):
+        bv = entry.get("battery_voltage")
+        if bv is not None:
+            try:
+                v = float(bv)
+                pct = max(0, min(100, int((v - 3.0) / 1.2 * 100)))
+                global_cache.set("battery_pct", pct)
+            except (ValueError, TypeError):
+                pass
+            break
     return {"status": "ok"}
 
 @router.post("/setup")
