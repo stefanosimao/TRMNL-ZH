@@ -63,7 +63,7 @@ def draw_h_grid(draw: ImageDraw, x: int, y: int, width: int, height: int, steps:
 
 
 def draw_chart_title(draw: ImageDraw, x: int, y: int, title: str):
-    font_small = get_font(11, "Bold")
+    font_small = get_font(12, "Bold")
     draw.text((x, y - 18), title.upper(), font=font_small, fill=0)
 
 
@@ -145,8 +145,8 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     The data arrays are 24 elements each, produced by get_next_24h_series()
     which returns 1 past hour + 23 forecast hours.
     """
-    font_tiny      = get_font(10, "Regular")
-    font_sun_label = get_font(12, "Regular")
+    font_tiny      = get_font(11, "Regular")
+
 
     LEFT_PAD  = 28  # space for left Y-axis labels
     RIGHT_PAD = 32  # space for right Y-axis labels
@@ -155,8 +155,8 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     cx        = x + LEFT_PAD
 
     # ── Chart 1: Temperatura + Precipitazioni ─────────────────────────────────
-    c1y = y + 28
-    draw_chart_title(draw, cx+135, c1y-2, "Temperatura (°C) + Precipitazioni (mm/h)")
+    c1y = y + 22
+    draw_chart_title(draw, cx+125, c1y-2, "Temperatura (°C) + Precipitazioni (mm/h)")
     draw_24h_grid(draw, cx, c1y, chart_w, chart_h, start_hour=start_hour)
 
     # Temp scale
@@ -191,8 +191,8 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     draw.text((ora_x -11, c1y-15), "ORA", font=font_tiny, fill=0)
 
     # ── Chart 2: Sole + Vento ─────────────────────────────────────────────────
-    c2y = c1y + chart_h + 46
-    draw_chart_title(draw, cx+175, c2y-2, "Sole (min/h) + Vento (km/h)")
+    c2y = c1y + chart_h + 38
+    draw_chart_title(draw, cx+165, c2y-2, "Sole (min/h) + Vento (km/h)")
     draw_24h_grid(draw, cx, c2y, chart_w, chart_h, start_hour=start_hour)
 
     s_max = 60.0

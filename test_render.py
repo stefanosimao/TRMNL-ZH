@@ -54,9 +54,7 @@ def generate_preview():
             ],
         },
         "summary": (
-            "Oggi fresco e nuvoloso, 10.7°C. Pioggia leggera prevista verso le 18. "
-            "Porta giacca e ombrello per stasera. Domani coperto ma asciutto. "
-            "⚠ Tram 3: +4min ritardo (Hardplatz). Se vai a Oerlikon, bus 80 tra 5 min."
+            "Oggi fresco e nuvoloso, 10.7°C. Pioggia leggera prevista verso le 18. Porta giacca e ombrello per stasera. Domani coperto ma asciutto. ⚠ Tram 3: +4min ritardo (Hardplatz). Se vai a Oerlikon, bus 80 tra 5 min. Questo è un test che non significa nulla. Voglio capire quante lettere ci stanno nel box. Sembra che così basti."
         ),
     }
 

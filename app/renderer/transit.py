@@ -56,14 +56,14 @@ def render_transit_section(draw: ImageDraw, x: int, y: int, station_name: str, d
         line_w = max(24, text_w + 8)
         if line == "3":
             draw.rectangle([x, curr_y, x + 4 + line_w, curr_y + row_height - 2], fill=0)
-            draw.text((x + 9.5, curr_y + 1), line, font=font_bold, fill=255)
+            draw.text((x + 9.5, curr_y), line, font=font_bold, fill=255)
         else:
             draw.rectangle([x, curr_y, x + 2 + line_w, curr_y + row_height - 2], fill=0)
-            draw.text((x + 6, curr_y + 1), line, font=font_bold, fill=255)
+            draw.text((x + 6, curr_y), line, font=font_bold, fill=255)
 
         # Destination (shortened to terminal name), fixed x so all names align
         dest = _shorten_dest(dep.get("destination", "").replace("Zürich, ", ""))
-        draw.text((x + DEST_X, curr_y - 1), dest, font=font_reg, fill=0)
+        draw.text((x + DEST_X, curr_y + 1), dest, font=font_reg, fill=0)
 
         # Time: right-aligned; if delayed show scheduled+delay
         delay = dep.get("delay", 0) or 0
@@ -72,7 +72,7 @@ def render_transit_section(draw: ImageDraw, x: int, y: int, station_name: str, d
         else:
             time_text = dep.get("time", "")
         time_w = int(draw.textlength(time_text, font=font_bold))
-        draw.text((x + PANEL_W - time_w - 8, curr_y + 2), time_text, font=font_bold, fill=0)
+        draw.text((x + PANEL_W - time_w - 8, curr_y + 1), time_text, font=font_bold, fill=0)
 
         curr_y += row_height
 

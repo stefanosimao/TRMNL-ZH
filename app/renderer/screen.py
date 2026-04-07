@@ -144,7 +144,7 @@ def compose_screen(data: dict) -> Image.Image:
 
     # ── Summary tile (extends to near bottom) ─────────────────────────────────
     summary_y      = y + 8
-    summary_bottom = 457
+    summary_bottom = 440
     draw.rectangle([rx, summary_y, 793, summary_bottom], outline=0, width=1)
 
     draw.rectangle([rx, summary_y, 793, summary_y + 19], fill=0)
