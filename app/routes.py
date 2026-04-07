@@ -130,7 +130,10 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         d.text((20, 230), datetime.now().strftime("%H:%M:%S"), font=get_font(18, "Regular"), fill=0)
 
     image_path = os.path.join(settings.IMAGE_DIR, "screen.png")
-    img.save(image_path)
+    # Convert 1-bit → 8-bit grayscale before saving.
+    # Mode "1" bit-packing is a known source of bottom-row artifacts
+    # on TRMNL e-ink firmware; mode "L" is universally supported.
+    img.convert("L").save(image_path, optimize=False)
 
     # 5. Return JSON metadata per BYOS spec
     timestamp = int(time.time())

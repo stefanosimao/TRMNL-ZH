@@ -109,7 +109,7 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
 
     lines = [
         "Sei un assistente meteo per Zurigo, zona Albisrieden.",
-        "Scrivi UN paragrafo conciso in italiano (MAX 395CARATTERI).",
+        "Scrivi UN paragrafo conciso in italiano (MAX 390 CARATTERI).",
         "",
         f"CONTESTO TEMPORALE: {time_context}",
         "",
@@ -184,8 +184,23 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
             lines.append(f"  {d}")
 
     lines.append("")
-    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 395 caratteri.")
+    lines.append("Rispondi SOLO con il paragrafo in italiano, senza titoli o prefissi. Stai entro i 390 caratteri.")
     return "\n".join(lines)
+
+
+def _truncate_at_word_boundary(text: str, limit: int) -> str:
+    """Truncate text at the last word boundary within `limit` characters."""
+    if len(text) <= limit:
+        return text
+    truncated = text[:limit - 1]  # leave room for "…"
+    # Find last space to avoid cutting mid-word
+    last_space = truncated.rfind(" ")
+    if last_space > 0:
+        truncated = truncated[:last_space]
+    return truncated.rstrip(".,;:!? ") + "…"
+
+
+_MAX_CHARS = 390
 
 
 async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
@@ -193,8 +208,9 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
     Calls Gemini 2.5 Flash to produce the Italian summary paragraph.
 
     The synchronous google-genai client is wrapped in asyncio.to_thread
-    so it doesn't block the event loop.  The result is hard-truncated at
-    395 characters as a safety net (the prompt already asks for this limit).
+    so it doesn't block the event loop.  If the response exceeds 390
+    characters, a single retry asks Gemini to shorten it.  As a last
+    resort, the text is truncated at the nearest word boundary.
     """
     if not settings.GEMINI_API_KEY:
         return "Gemini API key non configurata."
@@ -202,16 +218,34 @@ async def generate_summary(weather: dict, transit: dict, alerts: list) -> str:
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         prompt = _build_prompt(weather, transit, alerts)
-        
+
         response = await asyncio.to_thread(
             client.models.generate_content,
             model="gemini-2.5-flash",
             contents=prompt,
         )
         text = response.text.strip()
-        # Safety truncate if model ignores prompt instruction
-        if len(text) > 395:
-            text = text[:394] + "..."
+
+        # If too long, ask Gemini once to shorten it
+        if len(text) > _MAX_CHARS:
+            print(f"Gemini summary too long ({len(text)} chars), requesting shorter version...")
+            shorten_prompt = (
+                f"Il seguente testo è troppo lungo ({len(text)} caratteri). "
+                f"Riscrivilo in massimo {_MAX_CHARS} caratteri mantenendo il significato. "
+                f"Rispondi SOLO con il testo riscritto, senza commenti.\n\n{text}"
+            )
+            retry_response = await asyncio.to_thread(
+                client.models.generate_content,
+                model="gemini-2.5-flash",
+                contents=shorten_prompt,
+            )
+            text = retry_response.text.strip()
+
+        # Final safety net: truncate at word boundary
+        if len(text) > _MAX_CHARS:
+            print(f"Gemini summary still too long after retry ({len(text)} chars), truncating.")
+            text = _truncate_at_word_boundary(text, _MAX_CHARS)
+
         return text
     except Exception as e:
         print(f"Gemini error: {e}")

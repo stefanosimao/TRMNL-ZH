@@ -36,7 +36,7 @@ FastAPI server
     │       MeteoSwiss data    ← background job every 30 min
     │       Wetter-Alarm       ← background job every 30 min
     │       Transit snapshot   ← on each display request (also cached for Gemini)
-    │       Gemini summary     ← background job every 60 min
+    │       Gemini summary     ← background job every 30 min
     │                            (also triggered on alert changes)
     ├── render 800×480 1-bit PNG with Pillow (~300ms)
     └── return { "image_url": "...", "refresh_rate": N, ... }
@@ -192,7 +192,7 @@ SwitchBot credentials must be set in `.env` for the live render. Gemini summary 
 | [SwitchBot API v1.1](https://github.com/OpenWonderLabs/SwitchBotAPI)                                 | Temperature, humidity, battery for 2 sensors | Every 5 min                    | HMAC-SHA256    |
 | [MeteoSwiss Open Data E4](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data) | Hourly + daily forecast for PLZ 8047         | Every 30 min                   | None           |
 | [Wetter-Alarm](https://wetteralarm.ch) — POI 142941                                                  | Active weather alerts for Albisrieden        | Every 30 min                   | None           |
-| [Gemini 2.5 Flash](https://ai.google.dev)                                                            | Italian summary: weather advice, disruptions | Every 60 min (or on new alert) | Google API key |
+| [Gemini 2.5 Flash](https://ai.google.dev)                                                            | Italian summary: weather advice, disruptions | Every 30 min (or on new alert) | Google API key |
 
 ### Rate limits and daily usage
 
@@ -204,7 +204,7 @@ All API calls are paused between 01:00 and 04:55 (night quiet hours), reducing d
 | SwitchBot              | 10,000         | ~480 (2 sensors × ~240 requests/day, minus night)      |
 | MeteoSwiss             | None specified | ~440 downloads/day (11 CSV files × ~40 fetches)        |
 | Wetter-Alarm           | None specified | ~40 requests/day                                       |
-| Gemini Flash           | Quota-based    | ~20–40 calls/day                                       |
+| Gemini Flash           | Quota-based    | ~40–80 calls/day                                       |
 
 ### Transit logic
 
