@@ -129,18 +129,17 @@ async def get_display(request: Request, _ = Depends(verify_trmnl_request)):
         d.text((20, 200), f"⚠ Errore rendering: {str(e)[:80]}", font=get_font(18, "Regular"), fill=0)
         d.text((20, 230), datetime.now(_ZURICH_TZ).strftime("%H:%M:%S"), font=get_font(18, "Regular"), fill=0)
 
-    image_path = os.path.join(settings.IMAGE_DIR, "screen.png")
-    # Convert 1-bit → 8-bit grayscale before saving.
-    # Mode "1" bit-packing is a known source of bottom-row artifacts
-    # on TRMNL e-ink firmware; mode "L" is universally supported.
-    img.convert("L").save(image_path, optimize=False)
+    image_path = os.path.join(settings.IMAGE_DIR, "screen.bmp")
+    # Save as BMP3 (Windows 3.x 1-bit bitmap) — the format TRMNL firmware
+    # officially expects. PNG caused bottom-row artifacts on the display.
+    img.convert("1").save(image_path, format="BMP")
 
     # 5. Return JSON metadata per BYOS spec
     timestamp = int(time.time())
-    filename = f"screen-{timestamp}.png"
+    filename = f"screen-{timestamp}.bmp"
     # Ensure BASE_URL doesn't have double slash
     base_url = settings.BASE_URL.rstrip('/')
-    image_url = f"{base_url}/{settings.IMAGE_DIR}/screen.png?v={timestamp}"
+    image_url = f"{base_url}/{settings.IMAGE_DIR}/screen.bmp?v={timestamp}"
 
     # Night mode (01:00–04:59): tell the device to sleep until 05:00.
     # The server also stops API calls during this window (_is_night_quiet).
