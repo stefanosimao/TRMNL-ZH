@@ -233,6 +233,9 @@ async def lifespan(app: FastAPI):
     # Startup
     app.state.client = httpx.AsyncClient(timeout=httpx.Timeout(10.0))
 
+    # Restore persisted state from disk
+    global_cache.load_persisted_battery()
+
     # Run initial jobs immediately (non-fatal — don't block startup on API errors)
     try:
         await update_switchbot_cache(app.state.client)

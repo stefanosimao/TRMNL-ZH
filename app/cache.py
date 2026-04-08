@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 _DEBUG_DIR = os.path.join("generated", "debug")
 _DEBUG_KEYS = {"switchbot", "meteo", "alerts", "summary"}
+_BATTERY_FILE = os.path.join(_DEBUG_DIR, "battery.json")
 
 class CacheEntry(TypedDict):
     """Represents a single entry in the global cache."""
@@ -71,6 +72,8 @@ class GlobalCache:
         }
         if key in _DEBUG_KEYS:
             self._write_debug_file(key, data)
+        if key == "battery_pct":
+            self._persist_battery(data)
 
     def _write_debug_file(self, key: str, data: Any):
         """Write cached data to a JSON debug file for easy inspection."""
@@ -89,6 +92,26 @@ class GlobalCache:
                 json.dump(payload, f, indent=2, default=str, ensure_ascii=False)
         except Exception as e:
             logger.warning(f"Failed to write debug file for '{key}': {e}")
+
+    def _persist_battery(self, pct: Any):
+        """Save battery percentage to disk so it survives restarts."""
+        try:
+            os.makedirs(_DEBUG_DIR, exist_ok=True)
+            with open(_BATTERY_FILE, "w") as f:
+                json.dump({"pct": pct, "updated_at": datetime.now(timezone.utc).isoformat()}, f)
+        except Exception:
+            pass
+
+    def load_persisted_battery(self):
+        """Load last known battery percentage from disk on startup."""
+        try:
+            with open(_BATTERY_FILE, "r") as f:
+                data = json.load(f)
+            if data.get("pct") is not None:
+                self.set("battery_pct", data["pct"])
+                logger.info(f"Restored battery_pct from disk: {data['pct']}%")
+        except (FileNotFoundError, json.JSONDecodeError, KeyError):
+            pass
 
     def set_error(self, key: str, error: str):
         """
