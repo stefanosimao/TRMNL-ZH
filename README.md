@@ -148,14 +148,14 @@ Auto-reload is enabled in development. For production use `uvicorn run:app --hos
 Generate a static preview image from mock data - no credentials or API calls needed:
 
 ```bash
-python test_render.py
+python tests/test_render.py
 # -> generated/test_preview.png
 ```
 
 Fetch real data from all APIs and render what the device will actually receive:
 
 ```bash
-python test_live_render.py
+python tests/test_live_render.py
 # -> generated/live_preview.png
 ```
 
@@ -247,32 +247,45 @@ The summary is regenerated every 30 minutes, and also immediately when the activ
 ```
 TRMNL-ZH/
 |-- run.py                    Entry point: uvicorn server
-|-- test_render.py            Offline layout preview with mock data
-|-- test_live_render.py       Live layout preview (fetches real data)
-|-- test_services.py          API connectivity check for all external services
 |-- requirements.txt
 |-- .env                      Credentials (not committed)
 |
-'-- app/
-    |-- __init__.py           App factory, lifespan, background scheduler
-    |-- config.py             Pydantic settings (loaded from .env)
-    |-- cache.py              In-memory cache with per-source timestamps + error state
-    |-- routes.py             /api/display, /api/log, /api/setup, /api/health
-    |
-    |-- services/
-    |   |-- searchch.py       search.ch stationboard API - live transit departures
-    |   |-- switchbot.py      SwitchBot API v1.1 - HMAC-SHA256 signed requests
-    |   |-- meteosuisse.py    MeteoSwiss E4 - STAC CSV download and parsing
-    |   |-- wetteralarm.py    Wetter-Alarm - active alert fetch for POI 142941
-    |   '-- gemini.py         Gemini 2.5 Flash - Italian summary generation
-    |
-    '-- renderer/
-        |-- screen.py         Main compositor - stitches all sections into 800x480
-        |-- transit.py        Street-timetable style departure rows
-        |-- charts.py         24h temperature/precipitation/sunshine/wind charts
-        |-- weather_icons.py  B&W geometric icons from MeteoSwiss pictogram codes
-        |-- fonts.py          Font loader with LRU cache and fallback chain
-        '-- fonts/            Bundled Liberation Sans .ttf files
+|-- app/
+|   |-- __init__.py           App factory, lifespan, background scheduler
+|   |-- config.py             Pydantic settings (loaded from .env)
+|   |-- cache.py              In-memory cache with per-source timestamps + error state
+|   |-- routes.py             /api/display, /api/log, /api/setup, /api/health
+|   |
+|   |-- services/
+|   |   |-- searchch.py       search.ch stationboard API - live transit departures
+|   |   |-- switchbot.py      SwitchBot API v1.1 - HMAC-SHA256 signed requests
+|   |   |-- meteosuisse.py    MeteoSwiss E4 - STAC CSV download and parsing
+|   |   |-- wetteralarm.py    Wetter-Alarm - active alert fetch for POI 142941
+|   |   |-- gemini.py         Gemini 2.5 Flash - Italian summary generation
+|   |   '-- discord.py        Discord webhook notifications (battery, errors)
+|   |
+|   '-- renderer/
+|       |-- screen.py         Main compositor - stitches all sections into 800x480
+|       |-- transit.py        Street-timetable style departure rows
+|       |-- charts.py         24h temperature/precipitation/sunshine/wind charts
+|       |-- weather_icons.py  B&W geometric icons from MeteoSwiss pictogram codes
+|       |-- fonts.py          Font loader with LRU cache and fallback chain
+|       '-- fonts/            Bundled Liberation Sans .ttf files
+|
+|-- tests/
+|   |-- test_render.py        Offline layout preview with mock data
+|   |-- test_live_render.py   Live layout preview (fetches real data)
+|   |-- test_services.py      API connectivity check for all external services
+|   |-- test_icons.py         Weather icon rendering test
+|   '-- test_discord.py       Manual Discord webhook test
+|
+|-- scripts/
+|   |-- deploy.sh             Deployment script
+|   '-- get_switchbot_devices.py  SwitchBot device discovery utility
+|
+'-- docs/
+    |-- AWS_Infra.md          AWS EC2 server management guide
+    '-- LLM.md                Gemini prompt design notes
 ```
 
 ---

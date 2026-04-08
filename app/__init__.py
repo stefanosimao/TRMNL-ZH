@@ -1,4 +1,6 @@
+import asyncio
 import httpx
+import logging
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -13,6 +15,9 @@ from .services.meteosuisse import fetch_meteosuisse_data
 from .services.wetteralarm import fetch_alerts, format_alerts_for_prompt
 from .services.searchch import fetch_stationboard
 from .services.gemini import generate_summary
+from .services.discord import send_discord_alert
+
+logger = logging.getLogger(__name__)
 
 _ZURICH_TZ = ZoneInfo(settings.TIMEZONE)
 
@@ -41,7 +46,9 @@ async def update_switchbot_cache(client: httpx.AsyncClient):
         outdoor = await fetch_switchbot_status(client, settings.SWITCHBOT_DEVICE_ID_BALCONY)
         global_cache.set("switchbot", {"indoor": indoor, "outdoor": outdoor})
     except Exception as e:
+        logger.error(f"SwitchBot update failed: {e}")
         global_cache.set_error("switchbot", str(e))
+        await send_discord_alert("SwitchBot Error", str(e), level="error", alert_key="switchbot_error", client=client)
 
 
 async def update_transit_snapshot(client: httpx.AsyncClient):
@@ -56,7 +63,7 @@ async def update_transit_snapshot(client: httpx.AsyncClient):
         )
         global_cache.set("transit_snapshot", {"station_1": s1, "station_2": s2})
     except Exception as e:
-        print(f"Transit snapshot error: {e}")
+        logger.error(f"Transit snapshot error: {e}")
 
 
 async def update_meteo_cache(client: httpx.AsyncClient):
@@ -67,7 +74,9 @@ async def update_meteo_cache(client: httpx.AsyncClient):
         data = await fetch_meteosuisse_data(client)
         global_cache.set("meteo", data)
     except Exception as e:
+        logger.error(f"MeteoSuisse update failed: {e}")
         global_cache.set_error("meteo", str(e))
+        await send_discord_alert("MeteoSuisse Error", str(e), level="error", alert_key="meteo_error", client=client)
 
 
 async def update_alerts_and_maybe_summary(client: httpx.AsyncClient):
@@ -88,7 +97,9 @@ async def update_alerts_and_maybe_summary(client: httpx.AsyncClient):
         if prev_ids != curr_ids:
             await _run_gemini_summary(client)
     except Exception as e:
+        logger.error(f"Wetter-Alarm update failed: {e}")
         global_cache.set_error("alerts", str(e))
+        await send_discord_alert("Wetter-Alarm Error", str(e), level="error", alert_key="alerts_error", client=client)
 
 
 async def _run_gemini_summary(client: httpx.AsyncClient):
@@ -120,6 +131,7 @@ async def _run_gemini_summary(client: httpx.AsyncClient):
         summary = await generate_summary(weather, transit, alert_strings)
         global_cache.set("summary", summary)
     except Exception as e:
+        logger.error(f"Gemini summary failed: {e}")
         global_cache.set_error("summary", str(e))
 
 
@@ -127,7 +139,11 @@ async def update_gemini_summary(client: httpx.AsyncClient):
     """Job: regenerate Italian summary (every 30 min)."""
     if _is_night_quiet():
         return
-    await _run_gemini_summary(client)
+    try:
+        await asyncio.wait_for(_run_gemini_summary(client), timeout=120.0)
+    except asyncio.TimeoutError:
+        logger.error("Gemini summary job timed out after 120s")
+        await send_discord_alert("Gemini Timeout", "Summary generation timed out after 120s", level="error", alert_key="gemini_timeout", client=client)
 
 
 async def _prewarm_all_caches(client: httpx.AsyncClient):
@@ -141,8 +157,7 @@ async def _prewarm_all_caches(client: httpx.AsyncClient):
     This bypasses _is_night_quiet() by calling the underlying fetchers
     directly instead of the guarded update_* wrappers.
     """
-    import asyncio
-    print("Pre-warming all caches for 05:00 wake-up...")
+    logger.info("Pre-warming all caches for 05:00 wake-up...")
 
     async def _switchbot():
         indoor  = await fetch_switchbot_status(client, settings.SWITCHBOT_DEVICE_ID_INDOOR)
@@ -170,10 +185,15 @@ async def _prewarm_all_caches(client: httpx.AsyncClient):
     )
     for r in results:
         if isinstance(r, Exception):
-            print(f"Pre-warm error: {r}")
+            logger.error(f"Pre-warm error: {r}")
+            await send_discord_alert("Pre-warm Error", str(r), level="error", alert_key="prewarm_error", client=client)
 
-    await _run_gemini_summary(client)
-    print("Pre-warm complete.")
+    try:
+        await asyncio.wait_for(_run_gemini_summary(client), timeout=120.0)
+    except asyncio.TimeoutError:
+        logger.error("Pre-warm Gemini summary timed out after 120s")
+        await send_discord_alert("Pre-warm Gemini Timeout", "Summary generation timed out during pre-warm", level="error", alert_key="prewarm_gemini_timeout", client=client)
+    logger.info("Pre-warm complete.")
 
 
 @asynccontextmanager
@@ -185,27 +205,27 @@ async def lifespan(app: FastAPI):
     try:
         await update_switchbot_cache(app.state.client)
     except Exception as e:
-        print(f"Startup SwitchBot error (non-fatal): {e}")
+        logger.warning(f"Startup SwitchBot error (non-fatal): {e}")
 
     try:
         await update_meteo_cache(app.state.client)
     except Exception as e:
-        print(f"Startup MeteoSuisse error (non-fatal): {e}")
+        logger.warning(f"Startup MeteoSuisse error (non-fatal): {e}")
 
     try:
         await update_transit_snapshot(app.state.client)
     except Exception as e:
-        print(f"Startup Transit snapshot error (non-fatal): {e}")
+        logger.warning(f"Startup Transit snapshot error (non-fatal): {e}")
 
     try:
         await update_alerts_and_maybe_summary(app.state.client)
     except Exception as e:
-        print(f"Startup Wetter-Alarm error (non-fatal): {e}")
+        logger.warning(f"Startup Wetter-Alarm error (non-fatal): {e}")
 
     try:
         await update_gemini_summary(app.state.client)
     except Exception as e:
-        print(f"Startup Gemini error (non-fatal): {e}")
+        logger.warning(f"Startup Gemini error (non-fatal): {e}")
 
     # Schedule recurring jobs (each skips 01:00–04:54 via _is_night_quiet)
     scheduler.add_job(update_switchbot_cache,             'interval', minutes=5,  args=[app.state.client])

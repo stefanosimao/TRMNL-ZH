@@ -108,6 +108,21 @@ Always ensure your `.env` on the server has the correct **Public IP**:
 ```env
 BASE_URL="http://18.185.139.191"  # No 's' and no ':8000'
 TRMNL_DEVICE_ID="A0:85:E3:6B:CB:80" # Must match device
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..." # Optional: for alerts
 ```
 
 Location: `/home/ubuntu/TRMNL-ZH/.env`
+
+---
+
+## 8. Viewing Logs
+
+The application uses Python's `logging` module with levels (INFO, WARNING, ERROR). Logs are accessible via `journalctl`.
+
+- **Live logs (follow)**: `sudo journalctl -u trmnl.service -f`
+- **Last 100 lines**: `sudo journalctl -u trmnl.service -n 100`
+- **Only errors and warnings**: `sudo journalctl -u trmnl.service -p warning`
+- **Since a specific time**: `sudo journalctl -u trmnl.service --since "1 hour ago"`
+- **Specific time range**: `sudo journalctl -u trmnl.service --since "2026-04-08 02:00" --until "2026-04-08 06:00"`
+- **Nginx access log (device requests)**: `sudo tail -100 /var/log/nginx/access.log | grep "api/display"`
+- **Nginx error log**: `sudo tail -f /var/log/nginx/error.log`

@@ -1,12 +1,15 @@
 import httpx
 import csv
 import io
+import logging
 from astral import LocationInfo
 from astral.sun import sun
 from datetime import datetime, date, timedelta
 from typing import List, Optional
 from zoneinfo import ZoneInfo
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 _ZURICH_TZ = ZoneInfo(settings.TIMEZONE)
 
@@ -86,10 +89,10 @@ async def _resolve_point_ids(client: httpx.AsyncClient, plz: str) -> set:
         content = r.content.decode('latin-1')
         reader = csv.DictReader(io.StringIO(content), delimiter=';')
         ids = {row['point_id'] for row in reader if row.get('postal_code') == plz}
-        print(f"Resolved PLZ {plz} → point_ids: {ids}")
+        logger.info(f"Resolved PLZ {plz} → point_ids: {ids}")
         return ids
     except Exception as e:
-        print(f"Error resolving point_ids for PLZ {plz}: {e}")
+        logger.error(f"Error resolving point_ids for PLZ {plz}: {e}")
         return set()
 
 
@@ -115,22 +118,22 @@ async def fetch_meteosuisse_data(client: httpx.AsyncClient):
         stac_data = stac_response.json()
 
         if not stac_data.get("features"):
-            print("No STAC features found")
+            logger.warning("No STAC features found")
             return results
 
         assets = stac_data["features"][0].get("assets", {})
 
     except Exception as e:
-        print(f"Error fetching STAC metadata: {e}")
+        logger.error(f"Error fetching STAC metadata: {e}")
         return results
 
     plz = settings.METEO_PLZ
-    print(f"Fetching MeteoSuisse data for PLZ: {plz}")
+    logger.info(f"Fetching MeteoSuisse data for PLZ: {plz}")
 
     # 2. Resolve the numeric point_id(s) for this PLZ from the metadata CSV
     point_ids = await _resolve_point_ids(client, plz)
     if not point_ids:
-        print(f"Could not resolve any point_id for PLZ {plz}")
+        logger.warning(f"Could not resolve any point_id for PLZ {plz}")
         return results
 
     for param in HOURLY_PARAMS + DAILY_PARAMS:
@@ -142,14 +145,14 @@ async def fetch_meteosuisse_data(client: httpx.AsyncClient):
                 break
 
         if not target_asset:
-            print(f"Could not find asset for param {param}")
+            logger.warning(f"Could not find asset for param {param}")
             continue
 
         url = target_asset["href"]
         try:
             response = await client.get(url)
             if response.status_code != 200:
-                print(f"Error fetching {param}: {response.status_code}")
+                logger.error(f"Error fetching {param}: {response.status_code}")
                 continue
 
             content = response.content.decode('latin-1')
@@ -173,16 +176,16 @@ async def fetch_meteosuisse_data(client: httpx.AsyncClient):
                             continue
 
             if param_data:
-                print(f"SUCCESS: Found {len(param_data)} entries for {param}")
+                logger.info(f"SUCCESS: Found {len(param_data)} entries for {param}")
                 if param in HOURLY_PARAMS:
                     results["hourly"][param] = param_data
                 else:
                     results["daily"][param] = param_data
             else:
-                print(f"FAILURE: No data found for {param} (point_ids={point_ids})")
+                logger.warning(f"No data found for {param} (point_ids={point_ids})")
 
         except Exception as e:
-            print(f"Error fetching MeteoSuisse param {param} from {url}: {e}")
+            logger.error(f"Error fetching MeteoSuisse param {param}: {e}")
             continue
 
     return results

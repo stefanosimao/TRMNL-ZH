@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # Gemini API Key for intelligent summary generation
     GEMINI_API_KEY: Optional[str] = None
 
+    # Discord webhook for alerts (battery, errors)
+    DISCORD_WEBHOOK_URL: Optional[str] = None
+
     # Wetter-Alarm — POI 142941 corresponds to Zürich Albisrieden
     WETTERALARM_POI_ID: int = 142941
 

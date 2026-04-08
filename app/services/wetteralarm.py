@@ -4,8 +4,11 @@ Fetches active MeteoAlarm-style weather alerts for Zürich Albisrieden (POI 1429
 API: https://my.wetteralarm.ch/v7/alarms/meteo.json  (no auth required)
 """
 import httpx
+import logging
 from datetime import datetime, timezone
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://my.wetteralarm.ch"
 
@@ -40,7 +43,7 @@ async def fetch_alerts(client: httpx.AsyncClient) -> list[dict]:
         response.raise_for_status()
         data = response.json()
     except Exception as e:
-        print(f"Wetter-Alarm fetch error: {e}")
+        logger.error(f"Wetter-Alarm fetch error: {e}")
         return []
 
     now = datetime.now(timezone.utc)
