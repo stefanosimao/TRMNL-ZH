@@ -6,7 +6,12 @@ This is the exact same data path as /api/display.
 import asyncio
 import httpx
 import os
+import sys
 from datetime import datetime
+
+# Ensure project root is on sys.path when running as `python tests/test_live_render.py`
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 from app.config import settings
 from app.services.switchbot import fetch_switchbot_status
 from app.services.meteosuisse import (

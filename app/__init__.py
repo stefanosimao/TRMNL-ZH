@@ -213,8 +213,49 @@ async def _prewarm_all_caches(client: httpx.AsyncClient):
     logger.info("Pre-warm complete.")
 
 
-def _check_oom_kill() -> str | None:
-    """Check dmesg for recent OOM kills of our process."""
+def _check_previous_crash() -> tuple[str, str]:
+    """
+    Check why the server was last stopped/killed.
+
+    Returns (reason_text, level) where level is 'info', 'warning', or 'error'.
+    Checks systemd exit status first, then dmesg for OOM kills.
+    """
+    reason_parts = []
+    level = "info"
+
+    # 1. Check systemd for previous exit status
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", "trmnl.service",
+             "--property=ExecMainStatus,ExecMainCode,NRestarts"],
+            capture_output=True, text=True, timeout=5,
+        )
+        props = {}
+        for line in result.stdout.strip().splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                props[k] = v
+
+        exit_code = props.get("ExecMainStatus", "0")
+        exit_type = props.get("ExecMainCode", "")
+        restarts = props.get("NRestarts", "0")
+
+        if exit_code != "0":
+            if exit_type == "signal":
+                signal_names = {"9": "SIGKILL (likely OOM)", "15": "SIGTERM", "11": "SIGSEGV"}
+                sig = signal_names.get(exit_code, f"signal {exit_code}")
+                reason_parts.append(f"Previous exit: **{sig}** (exit code {exit_code})")
+                level = "error"
+            else:
+                reason_parts.append(f"Previous exit: code **{exit_code}**")
+                level = "warning"
+
+        if restarts != "0":
+            reason_parts.append(f"Total restarts: **{restarts}**")
+    except Exception:
+        pass
+
+    # 2. Check dmesg for recent OOM kills
     try:
         result = subprocess.run(
             ["dmesg", "--time-format=reltime", "-l", "err,crit"],
@@ -222,10 +263,15 @@ def _check_oom_kill() -> str | None:
         )
         for line in reversed(result.stdout.splitlines()):
             if "oom" in line.lower() or "killed process" in line.lower():
-                return line.strip()
+                reason_parts.append(f"**OOM kill detected:**\n```{line.strip()}```")
+                level = "error"
+                break
     except Exception:
         pass
-    return None
+
+    if not reason_parts:
+        return "", "info"
+    return "\n".join(reason_parts), level
 
 
 @asynccontextmanager
@@ -275,13 +321,10 @@ async def lifespan(app: FastAPI):
     scheduler.start()
 
     # Notify Discord that the server (re)started
-    oom_line = _check_oom_kill()
+    crash_reason, level = _check_previous_crash()
     start_msg = f"Server started at {datetime.now(_ZURICH_TZ).strftime('%H:%M:%S')}."
-    if oom_line:
-        start_msg += f"\n\n**Possible OOM kill detected:**\n```{oom_line}```"
-        level = "error"
-    else:
-        level = "info"
+    if crash_reason:
+        start_msg += f"\n\n{crash_reason}"
     await send_discord_alert("Server Started", start_msg, level=level)
 
     yield

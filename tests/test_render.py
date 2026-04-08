@@ -1,7 +1,12 @@
+import os
+import sys
+from datetime import date, timedelta, datetime
+
+# Ensure project root is on sys.path when running as `python tests/test_render.py`
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 from app.renderer.screen import compose_screen
 from app.config import settings
-import os
-from datetime import date, timedelta, datetime
 
 
 def generate_preview():
