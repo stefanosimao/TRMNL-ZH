@@ -6,6 +6,7 @@ import asyncio
 import httpx
 import logging
 import os
+import subprocess
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from fastapi import FastAPI
@@ -212,6 +213,21 @@ async def _prewarm_all_caches(client: httpx.AsyncClient):
     logger.info("Pre-warm complete.")
 
 
+def _check_oom_kill() -> str | None:
+    """Check dmesg for recent OOM kills of our process."""
+    try:
+        result = subprocess.run(
+            ["dmesg", "--time-format=reltime", "-l", "err,crit"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in reversed(result.stdout.splitlines()):
+            if "oom" in line.lower() or "killed process" in line.lower():
+                return line.strip()
+    except Exception:
+        pass
+    return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -244,15 +260,26 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Startup Gemini error (non-fatal): {e}")
 
     # Schedule recurring jobs (each skips 01:00–04:54 via _is_night_quiet)
-    scheduler.add_job(update_switchbot_cache,             'interval', minutes=5,  args=[app.state.client])
-    scheduler.add_job(update_meteo_cache,                 'interval', minutes=30, args=[app.state.client])
-    scheduler.add_job(update_alerts_and_maybe_summary,    'interval', minutes=30, args=[app.state.client])
-    scheduler.add_job(update_gemini_summary,              'interval', minutes=30, args=[app.state.client])
+    _job_opts = dict(coalesce=True, max_instances=1)
+    scheduler.add_job(update_switchbot_cache,             'interval', minutes=5,  args=[app.state.client], **_job_opts)
+    scheduler.add_job(update_meteo_cache,                 'interval', minutes=30, args=[app.state.client], **_job_opts)
+    scheduler.add_job(update_alerts_and_maybe_summary,    'interval', minutes=30, args=[app.state.client], **_job_opts)
+    scheduler.add_job(update_gemini_summary,              'interval', minutes=30, args=[app.state.client], **_job_opts)
     # Pre-warm all caches at 04:55 so data is fresh when the device wakes at 05:00
     scheduler.add_job(_prewarm_all_caches,                'cron', hour=4, minute=55, args=[app.state.client],
-                      timezone=settings.TIMEZONE)
+                      timezone=settings.TIMEZONE, **_job_opts)
 
     scheduler.start()
+
+    # Notify Discord that the server (re)started
+    oom_line = _check_oom_kill()
+    start_msg = f"Server started at {datetime.now(_ZURICH_TZ).strftime('%H:%M:%S')}."
+    if oom_line:
+        start_msg += f"\n\n**Possible OOM kill detected:**\n```{oom_line}```"
+        level = "error"
+    else:
+        level = "info"
+    await send_discord_alert("Server Started", start_msg, level=level)
 
     yield
 

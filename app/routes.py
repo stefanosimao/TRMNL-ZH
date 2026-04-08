@@ -219,8 +219,12 @@ async def _build_display_response(request: Request) -> dict:
     # 2. Convert back to 1-bit with no dithering (image is already pure B&W)
     # 3. Save as uncompressed PNG (compress_level=0) — avoids bottom-row
     #    artifact caused by zlib decompression edge cases in the ESP32 decoder
-    img_out = img.convert("L").convert("1", dither=Image.Dither.NONE)
+    img_gray = img.convert("L")
+    img_out = img_gray.convert("1", dither=Image.Dither.NONE)
     img_out.save(image_path, format="PNG", compress_level=0)
+    img.close()
+    img_gray.close()
+    img_out.close()
 
     # 5. Return JSON metadata per BYOS spec
     timestamp = int(time.time())

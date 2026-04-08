@@ -4,7 +4,7 @@ Gemini 2.5 Flash integration for the "Riepilogo Intelligente" panel.
 Builds a structured Italian prompt from cached weather, forecast, alert,
 and transit data, then calls Gemini to produce a single concise paragraph
 with practical advice: what to wear, whether to carry an umbrella,
-and any active weather alerts or transit disruptions.
+and any active weather alerts or transit cancellations.
 
 After generation, the text is pixel-measured against the actual panel
 layout (word-wrap at the summary font/width).  If it overflows or
@@ -19,8 +19,8 @@ Hourly temperature, precipitation, and wind data are included so the
 model bases its advice on actual numbers rather than hallucinating from
 daily min/max or alert titles (e.g. ground-frost alerts != air temp 0 C).
 
-Transit disruptions are limited to lines 3 and 80 (delays and
-cancellations only - departure times are already visible on the display).
+Transit cancellations for lines 3 and 80 are included (delays are
+excluded as they go stale within the 30-min refresh cycle).
 """
 import asyncio
 import logging

@@ -16,7 +16,7 @@ A custom BYOS (Bring Your Own Server) FastAPI backend for a [TRMNL](https://uset
 | Chart 2                  | 24h sunshine bars + wind speed line                                   |
 | Transit - Albisrieden    | 5 departures: Tram 3, Bus 80 (see [Transit logic](#transit-logic))    |
 | Transit - Fellenbergstr. | 2 departures: Bus 67                                                  |
-| Riepilogo Intelligente   | Gemini 2.5 Flash Italian summary: weather advice, alerts, disruptions |
+| Riepilogo Intelligente   | Gemini 2.5 Flash Italian summary: weather advice, alerts, cancellations |
 | Metadata Footer          | Last-refresh timestamps for SwitchBot, Transit, Meteo, and Gemini     |
 
 ---
@@ -57,7 +57,7 @@ Between 01:00 and 05:00 Zurich time, the server enters quiet mode:
 
 ### Battery
 
-The TRMNL device sends `battery_voltage` in its log POST payload. The server extracts it, converts voltage to percentage (linear: 3.0V = 0%, 4.2V = 100%), caches it, and displays it next to the date. The `BATTERY_VOLTAGE` header on GET `/api/display` is also checked as a primary source.
+The TRMNL device sends `battery_voltage` in its log POST payload. The server extracts it, converts voltage to percentage (piecewise linear approximation with 8 control points from 3.2V = 0% to 4.2V = 100%), caches it, and displays it next to the date. The `BATTERY_VOLTAGE` header on GET `/api/display` is also checked as a primary source.
 
 ---
 
@@ -141,6 +141,9 @@ GEMINI_API_KEY=""
 
 # Server - set to your public URL when deploying
 BASE_URL="http://localhost:8000"
+
+# Discord webhook for error/battery alerts (optional)
+# DISCORD_WEBHOOK_URL=""
 
 # Optional overrides
 # TRANSIT_STATION_1="Zürich, Albisrieden"
@@ -252,7 +255,7 @@ Update `BASE_URL` in `.env` to the tunnel URL so the device can reach `image_url
 | [SwitchBot API v1.1](https://github.com/OpenWonderLabs/SwitchBotAPI)                                 | Temperature, humidity, battery for 2 sensors | Every 5 min                    | HMAC-SHA256    |
 | [MeteoSwiss Open Data E4](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data) | Hourly + daily forecast for PLZ 8047         | Every 30 min                   | None           |
 | [Wetter-Alarm](https://wetteralarm.ch) - POI 142941                                                  | Active weather alerts for Albisrieden        | Every 30 min                   | None           |
-| [Gemini 2.5 Flash](https://ai.google.dev)                                                            | Italian summary: weather advice, disruptions | Every 30 min (or on new alert) | Google API key |
+| [Gemini 2.5 Flash](https://ai.google.dev)                                                            | Italian summary: weather advice, cancellations | Every 30 min (or on new alert) | Google API key |
 
 ### Rate limits and daily usage
 
@@ -279,16 +282,16 @@ The display always shows **5 departures** for Albisrieden and **2** for Fellenbe
 
 **Weekend late-night transition**: as regular trams/buses stop running, their slots return next-morning departures (05:00+). These are replaced one-by-one with Nachtbus N3/N8 departures. For example at 00:45 on Saturday: if only 1 tram is still running tonight, the remaining 4 slots fill with night buses.
 
-Delays are shown as `(+N') HH:MM` using the scheduled time. Cancelled departures (`dep_delay: "X"` from search.ch) are hidden from the timetable but reported to Gemini as disruptions.
+Delays are shown as `(+N') HH:MM` using the scheduled time. Cancelled departures (`dep_delay: "X"` from search.ch) are hidden from the timetable but reported to Gemini as cancellations.
 
 ### Gemini summary
 
-The "Riepilogo Intelligente" panel shows a Gemini-generated Italian paragraph (max 320 characters) with practical weather advice. The prompt is time-aware:
+The "Riepilogo Intelligente" panel shows a Gemini-generated Italian paragraph (target 260-290 characters, max 300) with practical weather advice. The prompt is time-aware:
 
 - **Daytime (05:00-21:59)**: focuses on current conditions and the next few hours
 - **Night (22:00-04:59)**: focuses on tomorrow morning's forecast
 
-If the initial response exceeds 320 characters, a single retry asks Gemini to shorten it. If still too long, the text is truncated at the nearest word boundary.
+After generation, the text is pixel-measured against the actual panel layout (word-wrap at the summary font/width). If it overflows or underflows the box, up to 2 retries ask Gemini to adjust. As a final safety net, the text is truncated at the nearest word boundary.
 
 The summary is regenerated every 30 minutes, and also immediately when the active weather alert set changes.
 
@@ -306,6 +309,27 @@ Each data source degrades independently - the display is never blank.
 | Gemini         | Shows last cached summary or "Riepilogo non disponibile HH:MM"                            |
 | Wetter-Alarm   | No alert shown (safe default - never false-positive)                                      |
 | Renderer crash | Serves a fallback error image with error message + timestamp; device never receives a 500 |
+
+### Discord notifications
+
+If `DISCORD_WEBHOOK_URL` is set, the server sends alerts to a Discord channel for:
+
+- **Low battery** (< 20%) and **critical battery** (< 10%) warnings
+- **Service errors**: SwitchBot, MeteoSwiss, Wetter-Alarm, or Gemini failures
+- **Timeouts**: display rendering or Gemini generation timeouts
+
+Alerts are rate-limited with a 30-minute cooldown per alert type to avoid spam.
+
+### Debug files
+
+Cached data is automatically written to `generated/debug/` as JSON files for easy inspection on the server:
+
+- `switchbot.json` — indoor/outdoor sensor data
+- `meteo.json` — MeteoSuisse conditions and forecast
+- `alerts.json` — Wetter-Alarm active alerts
+- `summary.json` — Gemini summary text, character count, and wrapped line count
+
+Each file includes a timestamp. Files update whenever the corresponding cache is refreshed.
 
 ---
 

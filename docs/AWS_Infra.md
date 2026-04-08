@@ -37,6 +37,45 @@ The app runs as a background service called `trmnl.service`.
 - **Start**: `sudo systemctl start trmnl.service`
 - **View Live Logs**: `sudo journalctl -u trmnl.service -f`
 
+### Systemd service file
+
+The service file is at `/etc/systemd/system/trmnl.service`. Here's the recommended configuration:
+
+```ini
+[Unit]
+Description=TRMNL-ZH FastAPI Server
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/TRMNL-ZH
+EnvironmentFile=/home/ubuntu/TRMNL-ZH/.env
+ExecStart=/home/ubuntu/TRMNL-ZH/venv/bin/python run.py
+Restart=always
+RestartSec=5
+MemoryMax=800M
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Key settings:
+- **`Restart=always`**: systemd automatically restarts the server if it crashes or is killed (OOM, unhandled exception, etc.). `RestartSec=5` waits 5 seconds before restarting.
+- **`MemoryMax=800M`**: the kernel kills the process if it exceeds 800MB, preventing it from freezing the entire 1GB instance. Combined with `Restart=always`, the server comes back up within seconds.
+
+When the server restarts, it sends a Discord notification (if `DISCORD_WEBHOOK_URL` is set). If the restart was caused by an OOM kill, the notification includes the relevant `dmesg` line.
+
+### Applying changes to the service file
+
+After editing `/etc/systemd/system/trmnl.service`:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart trmnl.service
+sudo systemctl status trmnl.service   # verify it's running
+```
+
 ---
 
 ## 4. Web Server Management (Nginx)
