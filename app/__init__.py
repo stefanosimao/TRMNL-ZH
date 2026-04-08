@@ -45,10 +45,12 @@ async def update_switchbot_cache(client: httpx.AsyncClient):
     """Job: update indoor and outdoor sensor data (every 5 min)."""
     if _is_night_quiet():
         return
+    logger.info("Updating SwitchBot cache...")
     try:
         indoor  = await fetch_switchbot_status(client, settings.SWITCHBOT_DEVICE_ID_INDOOR)
         outdoor = await fetch_switchbot_status(client, settings.SWITCHBOT_DEVICE_ID_BALCONY)
         global_cache.set("switchbot", {"indoor": indoor, "outdoor": outdoor})
+        logger.info("SwitchBot cache updated successfully.")
     except Exception as e:
         logger.error(f"SwitchBot update failed: {e}")
         global_cache.set_error("switchbot", str(e))
@@ -59,6 +61,7 @@ async def update_transit_snapshot(client: httpx.AsyncClient):
     """Job: fetch transit departures so Gemini has disruption data."""
     if _is_night_quiet():
         return
+    logger.info("Updating transit snapshot...")
     try:
         import asyncio
         s1, s2 = await asyncio.gather(
@@ -66,6 +69,7 @@ async def update_transit_snapshot(client: httpx.AsyncClient):
             fetch_stationboard(client, settings.TRANSIT_STATION_2),
         )
         global_cache.set("transit_snapshot", {"station_1": s1, "station_2": s2})
+        logger.info("Transit snapshot updated.")
     except Exception as e:
         logger.error(f"Transit snapshot error: {e}")
 
@@ -74,9 +78,11 @@ async def update_meteo_cache(client: httpx.AsyncClient):
     """Job: download MeteoSuisse E4 forecast CSVs (every 30 min)."""
     if _is_night_quiet():
         return
+    logger.info("Updating MeteoSuisse cache...")
     try:
         data = await fetch_meteosuisse_data(client)
         global_cache.set("meteo", data)
+        logger.info("MeteoSuisse cache updated.")
     except Exception as e:
         logger.error(f"MeteoSuisse update failed: {e}")
         global_cache.set_error("meteo", str(e))
@@ -90,15 +96,18 @@ async def update_alerts_and_maybe_summary(client: httpx.AsyncClient):
     """
     if _is_night_quiet():
         return
+    logger.info("Checking for weather alerts...")
     try:
         alerts = await fetch_alerts(client)
         previous = global_cache.get("alerts") or []
         global_cache.set("alerts", alerts)
+        logger.info(f"Weather alerts check complete. {len(alerts)} active.")
 
         # Re-trigger summary if alert set changed
         prev_ids = {a.get("title") for a in previous}
         curr_ids = {a.get("title") for a in alerts}
         if prev_ids != curr_ids:
+            logger.info("Alerts changed, re-triggering Gemini summary...")
             await _run_gemini_summary(client)
     except Exception as e:
         logger.error(f"Wetter-Alarm update failed: {e}")
@@ -113,6 +122,7 @@ async def _run_gemini_summary(client: httpx.AsyncClient):
     Used by the hourly scheduler job, the alert-change trigger, and the
     04:55 pre-warm routine.
     """
+    logger.info("Generating Gemini summary...")
     try:
         switchbot  = global_cache.get("switchbot") or {}
         meteo_data = global_cache.get("meteo") or {}
@@ -134,6 +144,7 @@ async def _run_gemini_summary(client: httpx.AsyncClient):
         alert_strings = format_alerts_for_prompt(alerts)
         summary = await generate_summary(weather, transit, alert_strings)
         global_cache.set("summary", summary)
+        logger.info("Gemini summary generated successfully.")
     except Exception as e:
         logger.error(f"Gemini summary failed: {e}")
         global_cache.set_error("summary", str(e))
@@ -144,6 +155,7 @@ async def update_gemini_summary(client: httpx.AsyncClient):
     if _is_night_quiet():
         return
     try:
+        logger.info("Scheduled Gemini summary update starting...")
         await asyncio.wait_for(_run_gemini_summary(client), timeout=120.0)
     except asyncio.TimeoutError:
         logger.error("Gemini summary job timed out after 120s")
