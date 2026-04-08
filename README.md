@@ -90,6 +90,14 @@ TRMNL-ZH/
 └── docs/
     ├── AWS_Infra.md          # Infrastructure documentation
     └── LLM.md                # Prompt engineering notes
+├── tests/                    # Unit and integration tests
+│   ├── test_render.py        # Offline layout preview
+│   ├── test_live_render.py   # Live API and layout test
+│   ├── test_services.py      # External API connectivity tests
+│   └── test_gemini.py        # Gemini prompt/response test
+└── scripts/                  # Utility scripts
+    ├── deploy.sh             # Deployment helper
+    └── get_switchbot_devices.py # SwitchBot discovery utility
 ```
 
 ---

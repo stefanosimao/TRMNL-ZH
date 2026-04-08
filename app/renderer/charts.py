@@ -209,5 +209,5 @@ def render_weather_charts(draw: ImageDraw, x: int, y: int,
     draw_y_axis(draw, cx, c2y, chart_h, 0, s_max, "min", right=False)
     draw_y_axis(draw, cx + chart_w, c2y, chart_h, 0, w_max, "km/h", right=True)
 
-    # ORA marker at index 3 (3 hours in, current time)
+    # ORA marker at index 1 (same as Chart 1)
     draw_dashed_vline(draw, ora_x, c2y, chart_h)

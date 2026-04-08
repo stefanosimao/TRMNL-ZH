@@ -93,19 +93,26 @@ class GlobalCache:
         except Exception as e:
             logger.warning(f"Failed to write debug file for '{key}': {e}")
 
-    def _persist_battery(self, pct: Any):
-        """Save battery percentage to disk so it survives restarts."""
+    def _persist_battery(self, pct: Any) -> None:
+        """
+        Saves the battery percentage to disk to ensure it survives server restarts.
+
+        Args:
+            pct: The battery percentage value to persist.
+        """
         try:
             os.makedirs(_DEBUG_DIR, exist_ok=True)
-            with open(_BATTERY_FILE, "w") as f:
+            with open(_BATTERY_FILE, "w", encoding="utf-8") as f:
                 json.dump({"pct": pct, "updated_at": datetime.now(timezone.utc).isoformat()}, f)
         except Exception:
             pass
 
-    def load_persisted_battery(self):
-        """Load last known battery percentage from disk on startup."""
+    def load_persisted_battery(self) -> None:
+        """
+        Loads the last known battery percentage from disk during startup.
+        """
         try:
-            with open(_BATTERY_FILE, "r") as f:
+            with open(_BATTERY_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
             if data.get("pct") is not None:
                 self.set("battery_pct", data["pct"])

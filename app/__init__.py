@@ -64,7 +64,6 @@ async def update_transit_snapshot(client: httpx.AsyncClient):
         return
     logger.info("Updating transit snapshot...")
     try:
-        import asyncio
         s1, s2 = await asyncio.gather(
             fetch_stationboard(client, settings.TRANSIT_STATION_1),
             fetch_stationboard(client, settings.TRANSIT_STATION_2),
@@ -215,10 +214,14 @@ async def _prewarm_all_caches(client: httpx.AsyncClient):
 
 def _check_previous_crash() -> tuple[str, str]:
     """
-    Check why the server was last stopped/killed.
+    Checks why the server was last stopped or killed.
 
-    Returns (reason_text, level) where level is 'info', 'warning', or 'error'.
-    Checks systemd exit status first, then dmesg for OOM kills.
+    Queries systemd exit status and dmesg for potential OOM kills to provide
+    context on server restarts.
+
+    Returns:
+        tuple[str, str]: A tuple containing the reason text and the severity level
+                         ('info', 'warning', or 'error').
     """
     reason_parts = []
     level = "info"
