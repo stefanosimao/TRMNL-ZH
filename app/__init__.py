@@ -1,3 +1,7 @@
+"""
+Application factory, lifespan events, and background scheduler setup.
+Initializes FastAPI, sets up APScheduler jobs, and mounts static files.
+"""
 import asyncio
 import httpx
 import logging
@@ -259,6 +263,7 @@ def create_app() -> FastAPI:
     # Mount the generated directory for static image access by the TRMNL device
     if not os.path.exists(settings.IMAGE_DIR):
         os.makedirs(settings.IMAGE_DIR)
+    os.makedirs(os.path.join(settings.IMAGE_DIR, "debug"), exist_ok=True)
     app.mount(f"/{settings.IMAGE_DIR}", StaticFiles(directory=settings.IMAGE_DIR), name=settings.IMAGE_DIR)
 
     from .routes import router

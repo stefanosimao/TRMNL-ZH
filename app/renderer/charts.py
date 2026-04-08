@@ -1,3 +1,6 @@
+"""
+Chart drawing utilities for temperature, precipitation, sunshine, and wind data.
+"""
 from PIL import ImageDraw
 from typing import List, Optional
 from .fonts import get_font

@@ -1,3 +1,7 @@
+"""
+FastAPI routing and endpoints for the TRMNL-ZH backend.
+Handles the main BYOS display generation, logging, and health checks.
+"""
 import logging
 from fastapi import APIRouter, Request, HTTPException, Depends
 from starlette.responses import JSONResponse
@@ -51,7 +55,12 @@ async def verify_trmnl_request(request: Request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 def _get_refresh_rate() -> int:
-    """Compute the correct refresh_rate: long sleep during night, normal otherwise."""
+    """
+    Computes the correct refresh_rate: long sleep during night, normal otherwise.
+    
+    Returns:
+        int: The number of seconds the device should sleep before the next request.
+    """
     now_zh = datetime.now(_ZURICH_TZ)
     if 1 <= now_zh.hour < 5:
         wake_at = now_zh.replace(hour=5, minute=0, second=0, microsecond=0)
@@ -63,6 +72,12 @@ async def _build_display_response(request: Request) -> dict:
     """
     Core display logic: fetch transit, read caches, render image, return metadata.
     Extracted so get_display() can wrap it with a timeout.
+    
+    Args:
+        request: The incoming FastAPI request.
+        
+    Returns:
+        dict: The BYOS metadata payload containing the image URL and refresh rate.
     """
     client = request.app.state.client
 

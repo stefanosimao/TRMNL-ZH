@@ -1,3 +1,7 @@
+"""
+Main screen composition for the 800x480 TRMNL e-ink display.
+Assembles the weather, forecast, charts, transit, and summary components.
+"""
 from PIL import Image, ImageDraw
 from datetime import datetime, date, timedelta
 from .fonts import get_font, word_wrap

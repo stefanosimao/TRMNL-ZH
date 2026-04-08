@@ -1,3 +1,6 @@
+"""
+Renderer component for the transit departures board.
+"""
 from PIL import ImageDraw, ImageFont
 from .fonts import get_font
 

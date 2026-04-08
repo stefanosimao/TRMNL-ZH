@@ -1,6 +1,6 @@
 # TRMNL-ZH
 
-A custom BYOS (Bring Your Own Server) backend for a [TRMNL](https://usetrmnl.com) e-ink display, tailored for Zurich Albisrieden. The server aggregates weather, transit, and sensor data from multiple sources, renders an 800x480 pixel black-and-white image, and serves it to the device every 45 seconds. All UI text is in Italian.
+A custom BYOS (Bring Your Own Server) FastAPI backend for a [TRMNL](https://usetrmnl.com) e-ink display, tailored for Zurich Albisrieden. The server aggregates weather, transit, and sensor data from multiple sources, renders an 800x480 pixel black-and-white image, and serves it to the device every 45 seconds. All UI text is in Italian.
 
 ![Preview](generated/test_preview.png)
 
@@ -21,11 +21,11 @@ A custom BYOS (Bring Your Own Server) backend for a [TRMNL](https://usetrmnl.com
 
 ---
 
-## Architecture
+## Architecture Overview
 
-Full BYOS - the TRMNL cloud is not involved. The device talks directly to this server.
+This is a BYOS (Bring Your Own Server) implementation. The TRMNL device communicates directly with this server, bypassing the TRMNL cloud. The backend is built with FastAPI for serving requests and APScheduler for running background tasks. Data from SwitchBot, MeteoSwiss, Wetter-Alarm, and Gemini are periodically fetched and cached in memory. Transit data is fetched live on each display request. The visual dashboard is drawn in memory using Pillow and saved as an uncompressed 1-bit grayscale PNG to prevent e-ink dithering artifacts.
 
-```
+```text
 TRMNL device
     |  GET /api/display  (every 45s, sends MAC address in "ID" header)
     v
@@ -61,16 +61,49 @@ The TRMNL device sends `battery_voltage` in its log POST payload. The server ext
 
 ---
 
-## Requirements
+## Project Structure
+
+```text
+TRMNL-ZH/
+├── run.py                    # Entry point: runs the Uvicorn ASGI server
+├── requirements.txt          # Python dependencies
+├── .env                      # Environment variables (not committed)
+├── app/
+│   ├── __init__.py           # App factory, lifespan events, and background scheduler
+│   ├── config.py             # Pydantic settings management
+│   ├── cache.py              # In-memory global cache
+│   ├── routes.py             # API endpoints (/api/display, /api/log, etc.)
+│   ├── services/             # External API integrations
+│   │   ├── searchch.py       # Live transit departures
+│   │   ├── switchbot.py      # SwitchBot temperature/humidity fetcher
+│   │   ├── meteosuisse.py    # Forecast data from MeteoSwiss
+│   │   ├── wetteralarm.py    # Active weather alerts
+│   │   ├── gemini.py         # AI summary generator
+│   │   └── discord.py        # Discord webhook notifications
+│   └── renderer/             # Pillow drawing logic
+│       ├── screen.py         # Main screen compositor
+│       ├── charts.py         # 24h charts rendering
+│       ├── transit.py        # Timetable rendering
+│       ├── weather_icons.py  # MeteoSwiss pictogram drawing
+│       ├── fonts.py          # Font loading and word wrapping
+│       └── fonts/            # Bundled Liberation Sans fonts
+└── docs/
+    ├── AWS_Infra.md          # Infrastructure documentation
+    └── LLM.md                # Prompt engineering notes
+```
+
+---
+
+## Prerequisites
 
 - Python 3.11+
-- SwitchBot account with two Meter sensors (indoor + balcony)
+- SwitchBot account with developer token and two Meter sensors (indoor + balcony)
 - Google AI Studio account with Gemini API enabled
 - TRMNL device in BYOS mode (no special licence required)
 
 ---
 
-## Installation
+## Setup & Installation
 
 ```bash
 git clone https://github.com/StefanoSimao/TRMNL-ZH
@@ -88,9 +121,9 @@ Liberation Sans is metrically identical to Arial and is open-source (SIL Open Fo
 
 ---
 
-## Configuration
+## Environment Variables & Configuration
 
-Copy `.env` and fill in your credentials:
+Copy `.env.example` to `.env` (or create a new `.env` file) and fill in your credentials:
 
 ```env
 # TRMNL Device - MAC address printed on the device label
@@ -132,7 +165,7 @@ Look for `"deviceType": "WoIOSensor"` (Outdoor Meter) or `"Meter"` entries and c
 
 ---
 
-## Running
+## Running locally
 
 ```bash
 source venv/bin/activate
@@ -163,16 +196,35 @@ SwitchBot credentials must be set in `.env` for the live render.
 
 ---
 
+## Connecting the TRMNL device
+
+1. On the device go to **Settings > Server** and set the custom server URL.
+2. Point it to `http://your-server/api/display`.
+3. The device will start polling every 45 seconds (as returned in `refresh_rate`).
+4. Requests arrive with an `ID` header containing the device MAC address - this must match `TRMNL_DEVICE_ID` in `.env`.
+
+For local testing, expose the server with:
+
+```bash
+ngrok http 8000
+# or
+cloudflared tunnel --url http://localhost:8000
+```
+
+Update `BASE_URL` in `.env` to the tunnel URL so the device can reach `image_url`.
+
+---
+
 ## API Endpoints
 
-| Method | Path                    | Description                                                   |
-| ------ | ----------------------- | ------------------------------------------------------------- |
-| `GET`  | `/api/display`          | Main BYOS endpoint. Requires `ID` header = `TRMNL_DEVICE_ID`. |
-| `POST` | `/api/log`              | Receives device log messages. Extracts battery voltage.       |
-| `POST` | `/api/setup`            | Device provisioning - returns `{"status": "ready"}`.          |
-| `GET`  | `/api/health`           | Health check - returns `{"status": "healthy"}`.               |
-| `GET`  | `/generated/screen.png` | The rendered display image (served as a static file).         |
-| `GET`  | `/docs`                 | Auto-generated OpenAPI / Swagger UI.                          |
+| Method | Path                    | Description                                                   | Auth Requirement |
+| ------ | ----------------------- | ------------------------------------------------------------- | ---------------- |
+| `GET`  | `/api/display`          | Main BYOS endpoint. | Header `ID` = `TRMNL_DEVICE_ID`. |
+| `POST` | `/api/log`              | Receives device log messages. Extracts battery voltage.       | None |
+| `POST` | `/api/setup`            | Device provisioning - returns `{"status": "ready"}`.          | None |
+| `GET`  | `/api/health`           | Health check - returns `{"status": "healthy"}`.               | None |
+| `GET`  | `/generated/screen.png` | The rendered display image (served as a static file).         | None |
+| `GET`  | `/docs`                 | Auto-generated OpenAPI / Swagger UI.                          | None |
 
 ### BYOS response format
 
@@ -242,73 +294,6 @@ The summary is regenerated every 30 minutes, and also immediately when the activ
 
 ---
 
-## Project Structure
-
-```
-TRMNL-ZH/
-|-- run.py                    Entry point: uvicorn server
-|-- requirements.txt
-|-- .env                      Credentials (not committed)
-|
-|-- app/
-|   |-- __init__.py           App factory, lifespan, background scheduler
-|   |-- config.py             Pydantic settings (loaded from .env)
-|   |-- cache.py              In-memory cache with per-source timestamps + error state
-|   |-- routes.py             /api/display, /api/log, /api/setup, /api/health
-|   |
-|   |-- services/
-|   |   |-- searchch.py       search.ch stationboard API - live transit departures
-|   |   |-- switchbot.py      SwitchBot API v1.1 - HMAC-SHA256 signed requests
-|   |   |-- meteosuisse.py    MeteoSwiss E4 - STAC CSV download and parsing
-|   |   |-- wetteralarm.py    Wetter-Alarm - active alert fetch for POI 142941
-|   |   |-- gemini.py         Gemini 2.5 Flash - Italian summary generation
-|   |   '-- discord.py        Discord webhook notifications (battery, errors)
-|   |
-|   '-- renderer/
-|       |-- screen.py         Main compositor - stitches all sections into 800x480
-|       |-- transit.py        Street-timetable style departure rows
-|       |-- charts.py         24h temperature/precipitation/sunshine/wind charts
-|       |-- weather_icons.py  B&W geometric icons from MeteoSwiss pictogram codes
-|       |-- fonts.py          Font loader with LRU cache and fallback chain
-|       '-- fonts/            Bundled Liberation Sans .ttf files
-|
-|-- tests/
-|   |-- test_render.py        Offline layout preview with mock data
-|   |-- test_live_render.py   Live layout preview (fetches real data)
-|   |-- test_services.py      API connectivity check for all external services
-|   |-- test_icons.py         Weather icon rendering test
-|   '-- test_discord.py       Manual Discord webhook test
-|
-|-- scripts/
-|   |-- deploy.sh             Deployment script
-|   '-- get_switchbot_devices.py  SwitchBot device discovery utility
-|
-'-- docs/
-    |-- AWS_Infra.md          AWS EC2 server management guide
-    '-- LLM.md                Gemini prompt design notes
-```
-
----
-
-## Connecting the TRMNL device
-
-1. On the device go to **Settings > Server** and set the custom server URL.
-2. Point it to `http://your-server/api/display`.
-3. The device will start polling every 45 seconds (as returned in `refresh_rate`).
-4. Requests arrive with an `ID` header containing the device MAC address - this must match `TRMNL_DEVICE_ID` in `.env`.
-
-For local testing, expose the server with:
-
-```bash
-ngrok http 8000
-# or
-cloudflared tunnel --url http://localhost:8000
-```
-
-Update `BASE_URL` in `.env` to the tunnel URL so the device can reach `image_url`.
-
----
-
 ## Error resilience
 
 Each data source degrades independently - the display is never blank.
@@ -321,3 +306,9 @@ Each data source degrades independently - the display is never blank.
 | Gemini         | Shows last cached summary or "Riepilogo non disponibile HH:MM"                            |
 | Wetter-Alarm   | No alert shown (safe default - never false-positive)                                      |
 | Renderer crash | Serves a fallback error image with error message + timestamp; device never receives a 500 |
+
+---
+
+## Deployment
+
+The server is designed to run continuously on an AWS EC2 instance. Background jobs are managed entirely by APScheduler within the FastAPI application lifecycle. For more details on the infrastructure, refer to `docs/AWS_Infra.md`.

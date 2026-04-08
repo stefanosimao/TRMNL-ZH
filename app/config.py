@@ -1,3 +1,7 @@
+"""
+Configuration management using Pydantic settings.
+Loads environment variables from .env file for the application.
+"""
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 from dotenv import load_dotenv

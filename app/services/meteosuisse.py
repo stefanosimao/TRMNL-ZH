@@ -1,3 +1,6 @@
+"""
+MeteoSwiss API integration for forecasting and hourly weather data.
+"""
 import httpx
 import csv
 import io
@@ -29,10 +32,17 @@ DAILY_PARAMS = [
     "jp2000d0",  # MeteoSwiss pictogram number (daily, daytime)
 ]
 
-def get_daily_forecast(meteo_data: dict, days_offset: int = 0):
+def get_daily_forecast(meteo_data: dict, days_offset: int = 0) -> dict | None:
     """
     Extracts max/min temp, precipitation, and pictogram for a specific day.
-    0 = Today, 1 = Tomorrow, etc.
+    
+    Args:
+        meteo_data: The fetched MeteoSwiss data containing 'daily' series.
+        days_offset: Days from today (0 = Today, 1 = Tomorrow, etc.).
+        
+    Returns:
+        A dictionary with date, max_temp, min_temp, precip, and pictogram, 
+        or None if data is missing.
     """
     if not meteo_data or "daily" not in meteo_data:
         return None

@@ -1,3 +1,7 @@
+"""
+SwitchBot API v1.1 integration.
+Fetches current temperature, humidity, and battery status from SwitchBot Meters.
+"""
 import hmac
 import hashlib
 import time

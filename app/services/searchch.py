@@ -1,3 +1,7 @@
+"""
+Transit data integration using the search.ch stationboard API.
+Handles fetching, filtering, and nighttime transition logic for local public transit.
+"""
 import httpx
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo

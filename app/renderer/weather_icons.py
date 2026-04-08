@@ -1,3 +1,6 @@
+"""
+Renderer component for drawing 1-bit weather icons based on MeteoSwiss pictogram codes.
+"""
 import math
 from PIL import ImageDraw
 

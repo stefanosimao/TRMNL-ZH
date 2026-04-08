@@ -128,9 +128,9 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
         "- Se ci sono allerte meteo attive, menzionale.",
         "- IMPORTANTE: le allerte per 'gelo al suolo' / 'Bodenfrost' riguardano la temperatura a livello del terreno, NON la temperatura dell'aria. Non dire che farà 0°C se i dati orari mostrano temperature più alte.",
         "- Basa le tue affermazioni sulle temperature SOLO sui dati orari e le previsioni fornite. Non inventare valori.",
-        "- Se ci sono disruzioni sulle linee 3 o 80, menzionale brevemente.",
+        "- Se ci sono cancellazioni sulle linee 3 o 80, menzionale brevemente.",
         "- NON menzionare orari di partenza dei mezzi (l'utente li vede già sul display).",
-        "- Se non ci sono allerte né disruzioni, non menzionare trasporti.",
+        "- Se non ci sono allerte né cancellazioni, non menzionare trasporti.",
         "",
         "DATI ATTUALI:",
         f"  Ora: {now.strftime('%H:%M')}",
@@ -176,20 +176,18 @@ def _build_prompt(weather: dict, transit: dict, alerts: list) -> str:
         for a in alerts:
             lines.append(f"  ⚠ {a}")
 
-    # Only pass disruption info for lines 3 and 80, not timetable data
-    disruptions = []
+    # Only pass cancellations for lines 3 and 80 (delays go stale too fast with 30-min refresh)
+    cancellations = []
     for dep in (transit.get("station_1", []) + transit.get("station_2", [])):
         line = dep.get("line")
         if line not in ("3", "80"):
             continue
         if dep.get("cancelled"):
-            disruptions.append(f"Linea {line} → {dep['destination']}: CANCELLATA")
-        elif dep.get("delay", 0) > 0:
-            disruptions.append(f"Linea {line} → {dep['destination']}: ritardo {dep['delay']} min")
-    if disruptions:
+            cancellations.append(f"Linea {line} → {dep['destination']}: CANCELLATA")
+    if cancellations:
         lines.append("")
-        lines.append("DISRUZIONI TRASPORTI (linee 3 e 80):")
-        for d in disruptions:
+        lines.append("CANCELLAZIONI TRASPORTI (linee 3 e 80):")
+        for d in cancellations:
             lines.append(f"  {d}")
 
     lines.append("")

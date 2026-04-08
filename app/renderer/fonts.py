@@ -1,3 +1,6 @@
+"""
+Font management, loading, caching, and text measurement utilities.
+"""
 import os
 from PIL import ImageFont, ImageDraw, Image
 from functools import lru_cache

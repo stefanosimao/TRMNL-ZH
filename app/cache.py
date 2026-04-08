@@ -1,5 +1,17 @@
+"""
+Global in-memory cache for storing data fetched by background jobs.
+"""
+import json
+import logging
+import os
 import time
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, TypedDict
+
+logger = logging.getLogger(__name__)
+
+_DEBUG_DIR = os.path.join("generated", "debug")
+_DEBUG_KEYS = {"switchbot", "meteo", "alerts", "summary"}
 
 class CacheEntry(TypedDict):
     """Represents a single entry in the global cache."""
@@ -46,7 +58,7 @@ class GlobalCache:
     def set(self, key: str, data: Any, error: Optional[str] = None):
         """
         Stores data in the cache with the current timestamp.
-        
+
         Args:
             key: The identifier for the cached data.
             data: The payload to cache.
@@ -57,6 +69,26 @@ class GlobalCache:
             "timestamp": time.time(),
             "error": error
         }
+        if key in _DEBUG_KEYS:
+            self._write_debug_file(key, data)
+
+    def _write_debug_file(self, key: str, data: Any):
+        """Write cached data to a JSON debug file for easy inspection."""
+        try:
+            os.makedirs(_DEBUG_DIR, exist_ok=True)
+            payload: dict = {
+                "data": data,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if key == "summary" and isinstance(data, str):
+                from .services.gemini import _count_lines
+                payload["chars"] = len(data)
+                payload["wrapped_lines"] = _count_lines(data)
+            path = os.path.join(_DEBUG_DIR, f"{key}.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, default=str, ensure_ascii=False)
+        except Exception as e:
+            logger.warning(f"Failed to write debug file for '{key}': {e}")
 
     def set_error(self, key: str, error: str):
         """
